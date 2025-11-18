@@ -576,6 +576,10 @@
             font-size: 1rem
         }
 
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--primary);
+        }
+
         .summary__grid {
             display: grid;
             gap: 10px;
@@ -684,11 +688,7 @@
             opacity: 0.6;
         }
 
-        /* Only disable name editing when not in edit mode */
-        .session:not(.editing) .exercise__name:not(.editing) {
-            pointer-events: none;
-            opacity: 0.7;
-        }
+        /* Exercise names are always editable - no restrictions */
         
         /* Sets are always editable - no restrictions */
 
@@ -703,6 +703,10 @@
 
         .session.completed .session__header {
             background: linear-gradient(180deg, rgba(16, 185, 129, .28), rgba(16, 185, 129, .16))
+        }
+
+        .session.completed .session__title {
+            color: var(--progress-green);
         }
 
         .badge-done {
@@ -735,6 +739,7 @@
             font-weight: 900;
             font-size: 1.1rem;
             order: 2;
+            color: var(--primary);
         }
 
         .session__date {
@@ -1118,6 +1123,97 @@
             outline: none;
         }
 
+        /* Exercise search input */
+        .exercise-search-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .exercise-search-input {
+            width: 100%;
+            padding: 10px 40px 10px 10px;
+            border-radius: 8px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text);
+            font-size: 0.9rem;
+            box-sizing: border-box;
+        }
+
+        .exercise-search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(94, 169, 255, 0.15);
+            outline: none;
+        }
+
+        [data-theme="light"] .exercise-search-input {
+            background: linear-gradient(180deg, #ffffff, #fafbfc);
+            border: 1px solid rgba(225, 232, 237, 0.8);
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+        }
+
+        [data-theme="light"] .exercise-search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(94, 169, 255, 0.15), 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .exercise-search-icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            font-size: 1rem;
+            opacity: 0.6;
+        }
+
+        .exercise-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            margin-top: 4px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        [data-theme="light"] .exercise-suggestions {
+            background: #ffffff;
+            border: 1px solid rgba(225, 232, 237, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .exercise-suggestion-item {
+            padding: 10px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+
+        .exercise-suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        .exercise-suggestion-item:hover,
+        .exercise-suggestion-item.highlighted {
+            background: var(--bg-secondary);
+        }
+
+        [data-theme="light"] .exercise-suggestion-item:hover,
+        [data-theme="light"] .exercise-suggestion-item.highlighted {
+            background: #f5f7fa;
+        }
+
+        .exercise-suggestion-item.all-exercises {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
         canvas {
             width: 100%;
             height: 250px;
@@ -1172,6 +1268,7 @@
         }
 
         .modal__title {
+            color: var(--primary);
             font-weight: 900;
             font-size: 1rem
         }
@@ -1235,7 +1332,7 @@
         .manual-section h2 {
             font-size: 1.3rem;
             font-weight: 800;
-            color: var(--heading);
+            color: var(--primary);
             margin-bottom: 12px;
             margin-top: 24px;
             border-bottom: 2px solid var(--border);
@@ -1249,7 +1346,7 @@
         .manual-section h3 {
             font-size: 1.1rem;
             font-weight: 700;
-            color: var(--heading-strong);
+            color: var(--primary);
             margin-top: 16px;
             margin-bottom: 8px;
         }
@@ -1924,7 +2021,7 @@
         .goal-title {
             font-weight: 600;
             font-size: 1rem;
-            color: var(--heading);
+            color: var(--primary);
             margin: 0;
             flex: 1;
         }
@@ -2280,9 +2377,11 @@
                     </div>
                     <div class="chart-control-group">
                         <label class="chart-control-label" for="sharedExercise">Ejercicio</label>
-                        <select id="sharedExercise" class="chart-select" aria-label="Selecciona ejercicio">
-                            <option value="all">Todos los ejercicios</option>
-                        </select>
+                        <div class="exercise-search-wrapper">
+                            <input type="text" id="sharedExercise" class="exercise-search-input" placeholder="Todos los ejercicios" aria-label="Buscar ejercicio" autocomplete="off" />
+                            <span class="exercise-search-icon">🔍</span>
+                            <div id="exerciseSuggestions" class="exercise-suggestions" style="display: none;"></div>
+                        </div>
                     </div>
                     <div class="chart-control-group">
                         <label class="chart-control-label" for="sharedPeriod">Periodo</label>
@@ -2331,9 +2430,36 @@
                 <h3 class="summary__title" style="margin-bottom:10px">Mi Perfil</h3>
                 <div class="profile-layout">
                     <div class="profile-avatar-wrapper">
-                        <img id="profileAvatar" class="profile-avatar" alt="Foto de perfil" src="" />
-                        <label class="label" for="profilePhoto" style="width:100%">Foto de perfil</label>
-                        <input id="profilePhoto" type="file" accept="image/*" class="input" />
+                        <img id="profileAvatar" class="profile-avatar" alt="Avatar" src="" />
+                        <div class="avatar-controls" style="display:grid; gap:10px; width:100%">
+                            <div class="field">
+                                <label class="label" for="avatarStyle">Estilo de avatar</label>
+                                <select id="avatarStyle" class="input">
+                                    <option value="avataaars">Avataaars</option>
+                                    <option value="pixel-art">Pixel Art</option>
+                                    <option value="adventurer">Adventurer</option>
+                                    <option value="big-smile">Big Smile</option>
+                                    <option value="bottts">Bottts</option>
+                                    <option value="fun-emoji">Fun Emoji</option>
+                                    <option value="icons">Icons</option>
+                                    <option value="identicon">Identicon</option>
+                                    <option value="lorelei">Lorelei</option>
+                                    <option value="micah">Micah</option>
+                                    <option value="miniavs">Miniavs</option>
+                                    <option value="notionists">Notionists</option>
+                                    <option value="open-peeps">Open Peeps</option>
+                                    <option value="personas">Personas</option>
+                                    <option value="rings">Rings</option>
+                                    <option value="shapes">Shapes</option>
+                                    <option value="thumbs">Thumbs</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn--ghost" id="generateAvatar">Generar nuevo avatar</button>
+                            <div style="text-align:center; color:var(--muted); font-size:0.85rem; padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border)">O</div>
+                            <label class="label" for="profilePhoto" style="width:100%; text-align:center">Subir foto propia</label>
+                            <input id="profilePhoto" type="file" accept="image/*" class="input" />
+                            <button type="button" class="btn btn--ghost btn--danger" id="removePhoto" style="display:none">Eliminar foto</button>
+                        </div>
                     </div>
                     <div class="profile-form">
                         <div class="field"><label class="label" for="profileFirstName">Nombre</label><input
@@ -2385,6 +2511,107 @@
                         </tr>
                     </tbody>
                 </table>
+            </article>
+
+            <article class="card pop" style="padding:16px; margin-top:12px">
+                <h3 class="summary__title" style="margin-bottom:16px">Medidas Corporales</h3>
+                <div class="body-measurements-form" style="display:grid; gap:12px; margin-bottom:16px">
+                    <div class="field">
+                        <label class="label" for="measurementArms">Brazos (cm)</label>
+                        <input id="measurementArms" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 35.5" />
+                    </div>
+                    <div class="field">
+                        <label class="label" for="measurementChest">Pecho (cm)</label>
+                        <input id="measurementChest" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 100" />
+                    </div>
+                    <div class="field">
+                        <label class="label" for="measurementWaist">Cintura (cm)</label>
+                        <input id="measurementWaist" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 80" />
+                    </div>
+                    <div class="field">
+                        <label class="label" for="measurementHips">Caderas (cm)</label>
+                        <input id="measurementHips" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 95" />
+                    </div>
+                    <div class="field">
+                        <label class="label" for="measurementLegs">Piernas (cm)</label>
+                        <input id="measurementLegs" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 60" />
+                    </div>
+                    <div class="field">
+                        <label class="label" for="measurementCalves">Gemelos (cm)</label>
+                        <input id="measurementCalves" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 38" />
+                    </div>
+                    <button class="btn" id="saveBodyMeasurements" type="button">Guardar medidas</button>
+                </div>
+                <div class="body-measurements-history">
+                    <h4 class="summary__title" style="margin-bottom:8px; font-size:1rem">Historial de medidas</h4>
+                    <div style="overflow-x:auto">
+                        <table style="width:100%; border-collapse:collapse; font-size:0.9rem">
+                            <thead>
+                                <tr>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Fecha</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Brazos</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Pecho</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Cintura</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Caderas</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Piernas</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Gemelos</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bodyMeasurementsHistoryBody">
+                                <tr>
+                                    <td colspan="7" style="padding:8px; color:var(--muted)">Sin registros aún</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </article>
+
+            <article class="card pop" style="padding:16px; margin-top:12px">
+                <h3 class="summary__title" style="margin-bottom:16px">Calculadora de TMB y Calorías</h3>
+                <div class="bmr-calculator" style="display:grid; gap:12px">
+                    <div class="field">
+                        <label class="label" for="bmrGender">Sexo</label>
+                        <select id="bmrGender" class="input">
+                            <option value="male">Hombre</option>
+                            <option value="female">Mujer</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="bmrAge">Edad</label>
+                        <input id="bmrAge" class="input" type="number" min="1" max="120" placeholder="Ej. 30" />
+                    </div>
+                    <div class="field">
+                        <label class="label" for="bmrActivity">Nivel de actividad</label>
+                        <select id="bmrActivity" class="input">
+                            <option value="1.2">Sedentario (poco o ningún ejercicio)</option>
+                            <option value="1.375">Ligera (ejercicio 1-3 días/semana)</option>
+                            <option value="1.55">Moderada (ejercicio 3-5 días/semana)</option>
+                            <option value="1.725">Intensa (ejercicio 6-7 días/semana)</option>
+                            <option value="1.9">Muy intensa (ejercicio 2 veces/día)</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="label" for="bmrGoal">Objetivo</label>
+                        <select id="bmrGoal" class="input">
+                            <option value="maintain">Mantener peso</option>
+                            <option value="lose">Perder grasa</option>
+                            <option value="gain">Ganar masa muscular</option>
+                        </select>
+                    </div>
+                    <button class="btn" id="calculateBMR" type="button">Calcular</button>
+                </div>
+                <div id="bmrResults" style="margin-top:20px; padding:16px; background:var(--bg-secondary); border-radius:8px; display:none">
+                    <h4 class="summary__title" style="margin-bottom:12px; font-size:1rem">Resultados</h4>
+                    <div style="display:grid; gap:8px">
+                        <div><strong>TMB (Tasa Metabólica Basal):</strong> <span id="bmrValue">—</span> kcal/día</div>
+                        <div><strong>TDEE (Gasto Energético Total):</strong> <span id="tdeeValue">—</span> kcal/día</div>
+                        <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border)">
+                            <strong>Calorías recomendadas:</strong>
+                            <div style="margin-top:4px; color:var(--accent)" id="recommendedCalories">—</div>
+                        </div>
+                    </div>
+                </div>
             </article>
 
             <article class="card pop" style="padding:16px; margin-top:12px">
@@ -2680,15 +2907,17 @@
 
                         <h3>Añadir ejercicios</h3>
                         <ul>
-                            <li>Dentro de una sesión, pulsa "+ Ejercicio"</li>
-                            <li>Ingresa el nombre del ejercicio</li>
-                            <li>Pulsa "Guardar"</li>
+                            <li>Dentro de una sesión, pulsa "+ Ejercicio" en cualquier momento</li>
+                            <li>No necesitas activar ningún modo de edición</li>
+                            <li>Ingresa el nombre del ejercicio y pulsa "Guardar"</li>
                         </ul>
 
                         <h3>Editar nombres de ejercicios</h3>
                         <ul>
                             <li>Haz clic directamente sobre el nombre del ejercicio para editarlo</li>
-                            <li>Presiona Enter para guardar o Escape para cancelar</li>
+                            <li>Aparecerán botones "💾 Guardar" y "✕ Cancelar" para confirmar o descartar el cambio</li>
+                            <li>También puedes presionar Enter para guardar o Escape para cancelar</li>
+                            <li>Al cambiar el nombre, las estadísticas del nombre anterior no contarán (solo el nuevo nombre)</li>
                         </ul>
 
                         <h3>Registrar sets</h3>
@@ -2699,11 +2928,11 @@
                             <li><strong>RIR:</strong> Repeticiones en reserva (esfuerzo percibido)</li>
                         </ul>
 
-                        <h3>Modo edición</h3>
+                        <h3>Editar sesión</h3>
                         <ul>
-                            <li>Pulsa el botón ✏️ para activar el modo edición</li>
-                            <li>Realiza los cambios necesarios</li>
-                            <li>Usa "💾 Guardar cambios" para confirmar o "✕ Cancelar" para descartar</li>
+                            <li>El botón ✏️ solo sirve para cambiar el nombre y la fecha de la sesión</li>
+                            <li>Al pulsarlo, se abrirá un diálogo donde puedes modificar estos datos</li>
+                            <li>No necesitas activar ningún modo para añadir ejercicios o editar nombres</li>
                         </ul>
 
                         <h3>Notas de ejercicios</h3>
@@ -2757,6 +2986,23 @@
                             <li>Pulsa "Actualizar perfil"</li>
                         </ul>
 
+                        <h3>Medidas corporales</h3>
+                        <ul>
+                            <li>En la sección "Medidas Corporales" puedes registrar:
+                                <ul>
+                                    <li>Brazos (cm)</li>
+                                    <li>Pecho (cm)</li>
+                                    <li>Cintura (cm)</li>
+                                    <li>Caderas (cm)</li>
+                                    <li>Piernas (cm)</li>
+                                    <li>Gemelos (cm)</li>
+                                </ul>
+                            </li>
+                            <li>Puedes registrar todas las medidas o solo algunas</li>
+                            <li>Se guarda un historial con todas tus medidas por fecha</li>
+                            <li>Pulsa "Guardar medidas" para registrar</li>
+                        </ul>
+
                         <h3>Foto de perfil</h3>
                         <p>Pulsa "Seleccionar archivo" para subir tu foto</p>
 
@@ -2770,6 +3016,21 @@
                                 </ul>
                             </li>
                             <li>Haz clic en el color que te guste</li>
+                        </ul>
+
+                        <h3>Calculadora de TMB y Calorías</h3>
+                        <ul>
+                            <li>En la sección "Calculadora de TMB y Calorías" puedes calcular:
+                                <ul>
+                                    <li><strong>TMB (Tasa Metabólica Basal):</strong> Las calorías que quemas en reposo</li>
+                                    <li><strong>TDEE (Gasto Energético Total):</strong> Calorías totales según tu nivel de actividad</li>
+                                    <li><strong>Calorías recomendadas:</strong> Según tu objetivo (mantener, perder grasa o ganar masa)</li>
+                                </ul>
+                            </li>
+                            <li>Selecciona tu sexo, edad y nivel de actividad</li>
+                            <li>Elige tu objetivo (mantener peso, perder grasa o ganar masa muscular)</li>
+                            <li>La calculadora usa automáticamente tu peso y altura del perfil</li>
+                            <li>Pulsa "Calcular" para ver los resultados</li>
                         </ul>
 
                         <h3>Notas rápidas</h3>
@@ -2813,8 +3074,19 @@
                             <li>Completa los datos:
                                 <ul>
                                     <li>Nombre del objetivo</li>
-                                    <li>Tipo (peso, volumen, repeticiones, etc.)</li>
-                                    <li>Meta numérica</li>
+                                    <li>Tipo de objetivo:
+                                        <ul>
+                                            <li>Aumentar peso (kg) - para ejercicios</li>
+                                            <li>Perder peso (kg) - basado en tu peso del perfil</li>
+                                            <li>Ganar peso (kg) - basado en tu peso del perfil</li>
+                                            <li>Aumentar volumen total</li>
+                                            <li>Aumentar repeticiones</li>
+                                            <li>Completar sesiones</li>
+                                            <li>Racha de días</li>
+                                            <li>Mejorar ejercicio específico</li>
+                                        </ul>
+                                    </li>
+                                    <li>Meta numérica (para perder/ganar peso, es la cantidad a perder/ganar)</li>
                                     <li>Ejercicio específico (si aplica)</li>
                                     <li>Fecha límite (opcional)</li>
                                 </ul>
@@ -2885,7 +3157,13 @@
                         <p>Sí, usa la función "Exportar sesiones" en la pestaña Importar.</p>
 
                         <h3>¿Cómo puedo editar un ejercicio ya creado?</h3>
-                        <p>Haz clic directamente sobre el nombre del ejercicio para editarlo.</p>
+                        <p>Haz clic directamente sobre el nombre del ejercicio para editarlo. Aparecerán botones de guardar/cancelar para confirmar el cambio.</p>
+
+                        <h3>¿Puedo eliminar ejercicios?</h3>
+                        <p>Sí, puedes eliminar ejercicios en cualquier momento usando el botón ✕ junto al nombre del ejercicio. Aparecerá un diálogo de confirmación.</p>
+
+                        <h3>¿Cómo funcionan las estadísticas de progreso?</h3>
+                        <p>Las estadísticas comparan el período actual con el período anterior del mismo tamaño. Si no hay datos del período anterior, se compara con el primer registro de ese ejercicio para calcular el progreso.</p>
                     </div>
 
                     <div class="manual-section">
@@ -2915,6 +3193,8 @@
                     <label class="label" for="goalType">Tipo de objetivo</label>
                     <select id="goalType" class="input">
                         <option value="weight">Aumentar peso (kg)</option>
+                        <option value="loseWeight">Perder peso (kg)</option>
+                        <option value="gainWeight">Ganar peso (kg)</option>
                         <option value="volume">Aumentar volumen total</option>
                         <option value="reps">Aumentar repeticiones</option>
                         <option value="sessions">Completar sesiones</option>
@@ -2997,8 +3277,8 @@
                 <div class="session__tools">
                     <button class="btn btn--mobile btn--ghost js-complete" title="Marcar como completada"
                         aria-pressed="false" aria-label="Marcar como completada">✓</button>
-                    <button class="btn btn--mobile btn--ghost js-edit-session" title="Editar sesión"
-                        aria-label="Editar sesión">✏️</button>
+                    <button class="btn btn--mobile btn--ghost js-edit-session" title="Editar nombre y fecha de la sesión"
+                        aria-label="Editar nombre y fecha de la sesión">✏️</button>
                     <button class="btn btn--mobile btn--ghost js-add-ex" title="Añadir ejercicio"
                         aria-label="Añadir ejercicio">+
                         Ejercicio</button>
@@ -3422,15 +3702,56 @@
 
             const DEFAULT_AVATAR = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" rx="100" fill="%231e293b"/><text x="50%" y="55%" font-size="64" text-anchor="middle" dominant-baseline="middle">👤</text></svg>';
 
+            // Generate DiceBear avatar URL
+            function generateAvatarUrl(style, seed) {
+                // Map style names to DiceBear API style names
+                const styleMap = {
+                    'avataaars': 'avataaars',
+                    'pixel-art': 'pixel-art',
+                    'adventurer': 'adventurer',
+                    'big-smile': 'big-smile',
+                    'bottts': 'bottts',
+                    'fun-emoji': 'fun-emoji',
+                    'icons': 'icons',
+                    'identicon': 'identicon',
+                    'lorelei': 'lorelei',
+                    'micah': 'micah',
+                    'miniavs': 'miniavs',
+                    'notionists': 'notionists',
+                    'open-peeps': 'open-peeps',
+                    'personas': 'personas',
+                    'rings': 'rings',
+                    'shapes': 'shapes',
+                    'thumbs': 'thumbs'
+                };
+                
+                const apiStyle = styleMap[style] || 'avataaars';
+                const avatarSeed = seed || Math.random().toString(36).substring(2, 15);
+                return `https://api.dicebear.com/9.x/${apiStyle}/svg?seed=${encodeURIComponent(avatarSeed)}`;
+            }
+
+            // Get current avatar (photo or generated)
+            function getCurrentAvatar() {
+                if (app.profile.photo) {
+                    return app.profile.photo;
+                }
+                const seed = app.profile.avatarSeed || (app.profile.firstName + ' ' + app.profile.lastName).trim() || 'default';
+                const style = app.profile.avatarStyle || 'avataaars';
+                return generateAvatarUrl(style, seed);
+            }
+
             function createDefaultProfile() {
                 return {
                     photo: '',
+                    avatarStyle: 'avataaars',
+                    avatarSeed: '',
                     firstName: '',
                     lastName: '',
                     height: '',
                     weight: '',
                     bodyFat: '',
-                    weightHistory: []
+                    weightHistory: [],
+                    bodyMeasurementsHistory: [],
                 };
             }
 
@@ -3915,8 +4236,18 @@
                             ...baseProfile,
                             ...storedProfile
                         };
+                        // Ensure new avatar fields exist
+                        if (!app.profile.avatarStyle) {
+                            app.profile.avatarStyle = 'avataaars';
+                        }
+                        if (!app.profile.avatarSeed) {
+                            app.profile.avatarSeed = '';
+                        }
                         if (!Array.isArray(app.profile.weightHistory)) {
                             app.profile.weightHistory = [];
+                        }
+                        if (!Array.isArray(app.profile.bodyMeasurementsHistory)) {
+                            app.profile.bodyMeasurementsHistory = [];
                         }
                         app.notes = Array.isArray(parsed.notes) ? parsed.notes : [];
                         app.prs = (parsed.prs && typeof parsed.prs === 'object') ? parsed.prs : {};
@@ -4337,7 +4668,7 @@
                 const nameEl = block.querySelector('.exercise__name');
                 nameEl.textContent = ex.name;
                 
-                // Make name editable on click (inline editing)
+                // Make name editable on click (inline editing with save/cancel)
                 let isEditing = false;
                 nameEl.style.cursor = 'pointer';
                 nameEl.title = 'Clic para editar';
@@ -4362,40 +4693,100 @@
                         input.focus();
                         input.select();
                         
-                        const finishEdit = () => {
+                        // Create confirmation buttons container
+                        const confirmContainer = document.createElement('div');
+                        confirmContainer.style.display = 'flex';
+                        confirmContainer.style.gap = '8px';
+                        confirmContainer.style.marginTop = '8px';
+                        confirmContainer.style.alignItems = 'center';
+                        
+                        const saveBtn = document.createElement('button');
+                        saveBtn.className = 'btn btn--small';
+                        saveBtn.textContent = '💾 Guardar';
+                        saveBtn.style.margin = '0';
+                        
+                        const cancelBtn = document.createElement('button');
+                        cancelBtn.className = 'btn btn--small btn--ghost';
+                        cancelBtn.textContent = '✕ Cancelar';
+                        cancelBtn.style.margin = '0';
+                        
+                        confirmContainer.appendChild(saveBtn);
+                        confirmContainer.appendChild(cancelBtn);
+                        
+                        // Insert confirmation buttons after input
+                        input.parentElement.insertBefore(confirmContainer, input.nextSibling);
+                        
+                        const cleanup = () => {
+                            confirmContainer.remove();
+                            isEditing = false;
+                        };
+                        
+                        const saveChanges = () => {
                             const newName = input.value.trim();
                             if (newName && newName !== originalName) {
-                                updateExerciseName(session.id, ex.id, newName);
+                                if (updateExerciseName(session.id, ex.id, newName, originalName)) {
+                                    // Update the name element with new name
+                                    const newNameEl = document.createElement('div');
+                                    newNameEl.className = 'exercise__name';
+                                    newNameEl.textContent = newName;
+                                    newNameEl.style.cursor = 'pointer';
+                                    newNameEl.title = 'Clic para editar';
+                                    input.replaceWith(newNameEl);
+                                    makeEditable(newNameEl);
+                                    cleanup();
+                                } else {
+                                    // If update failed, restore original
+                                    cancelChanges();
+                                }
                             } else {
-                                // Restore original element
-                                const newNameEl = document.createElement('div');
-                                newNameEl.className = 'exercise__name';
-                                newNameEl.textContent = originalName;
-                                newNameEl.style.cursor = 'pointer';
-                                newNameEl.title = 'Clic para editar';
-                                input.replaceWith(newNameEl);
-                                // Re-attach event listener
-                                makeEditable(newNameEl);
-                                isEditing = false;
+                                cancelChanges();
                             }
                         };
                         
-                        input.addEventListener('blur', finishEdit);
+                        const cancelChanges = () => {
+                            const newNameEl = document.createElement('div');
+                            newNameEl.className = 'exercise__name';
+                            newNameEl.textContent = originalName;
+                            newNameEl.style.cursor = 'pointer';
+                            newNameEl.title = 'Clic para editar';
+                            input.replaceWith(newNameEl);
+                            makeEditable(newNameEl);
+                            cleanup();
+                        };
+                        
+                        saveBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            saveChanges();
+                        });
+                        
+                        cancelBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            cancelChanges();
+                        });
+                        
                         input.addEventListener('keydown', (e) => {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
-                                finishEdit();
+                                saveChanges();
                             } else if (e.key === 'Escape') {
-                                const newNameEl = document.createElement('div');
-                                newNameEl.className = 'exercise__name';
-                                newNameEl.textContent = originalName;
-                                newNameEl.style.cursor = 'pointer';
-                                newNameEl.title = 'Clic para editar';
-                                input.replaceWith(newNameEl);
-                                // Re-attach event listener
-                                makeEditable(newNameEl);
-                                isEditing = false;
+                                e.preventDefault();
+                                cancelChanges();
                             }
+                        });
+                        
+                        // Don't close on blur if clicking on buttons
+                        input.addEventListener('blur', (e) => {
+                            // Delay to allow button clicks to register
+                            setTimeout(() => {
+                                if (!confirmContainer.contains(document.activeElement) && document.activeElement !== input) {
+                                    // Only cancel if focus moved outside the edit area
+                                    if (!confirmContainer.contains(e.relatedTarget)) {
+                                        cancelChanges();
+                                    }
+                                }
+                            }, 200);
                         });
                     });
                 };
@@ -4785,6 +5176,26 @@
                 let current = 0;
                 
                 switch (goal.type) {
+                    case 'loseWeight':
+                        // Get current weight from profile
+                        const currentWeight = parseFloat(app.profile?.weight) || 0;
+                        if (currentWeight > 0) {
+                            // For weight loss, we track how much weight has been lost
+                            // If target is 70kg and current is 75kg, progress is 5kg lost (towards 70kg)
+                            const initialWeight = goal.initialWeight || currentWeight;
+                            current = Math.max(0, initialWeight - currentWeight);
+                        }
+                        break;
+                    case 'gainWeight':
+                        // Get current weight from profile
+                        const currentWeightGain = parseFloat(app.profile?.weight) || 0;
+                        if (currentWeightGain > 0) {
+                            // For weight gain, we track how much weight has been gained
+                            // If target is 80kg and current is 75kg, progress is 5kg gained (towards 80kg)
+                            const initialWeightGain = goal.initialWeight || currentWeightGain;
+                            current = Math.max(0, currentWeightGain - initialWeightGain);
+                        }
+                        break;
                     case 'weight':
                         if (goal.exerciseName) {
                             const exerciseSessions = sessions.flatMap(s => 
@@ -4845,8 +5256,15 @@
                 const newCurrent = calculateGoalProgress(goal);
                 const wasCompleted = goal.completed;
                 goal.current = newCurrent;
-                goal.progress = Math.min(100, (newCurrent / parseFloat(goal.target)) * 100);
-                goal.completed = newCurrent >= parseFloat(goal.target);
+                
+                // For weight loss/gain, the target is the amount to lose/gain, not the final weight
+                if (goal.type === 'loseWeight' || goal.type === 'gainWeight') {
+                    goal.progress = Math.min(100, (newCurrent / parseFloat(goal.target)) * 100);
+                    goal.completed = newCurrent >= parseFloat(goal.target);
+                } else {
+                    goal.progress = Math.min(100, (newCurrent / parseFloat(goal.target)) * 100);
+                    goal.completed = newCurrent >= parseFloat(goal.target);
+                }
                 
                 // Check milestones
                 if (goal.milestones && goal.milestones.length > 0) {
@@ -4941,6 +5359,12 @@
                     current: 0
                 };
                 
+                // For weight loss/gain goals, store initial weight
+                let initialWeight = null;
+                if (goalData.type === 'loseWeight' || goalData.type === 'gainWeight') {
+                    initialWeight = parseFloat(app.profile?.weight) || 0;
+                }
+                
                 // Calculate actual current progress before creating milestones
                 const actualCurrent = calculateGoalProgress(tempGoal);
                 
@@ -4957,6 +5381,7 @@
                     autoMilestones: goalData.autoMilestones || false,
                     adaptive: true,
                     createdAt: new Date().toISOString(),
+                    initialWeight: initialWeight,
                     milestones: goalData.autoMilestones ? createMilestones({
                         type: goalData.type,
                         target: goalData.target,
@@ -5423,30 +5848,15 @@
                     if (indicator) indicator.style.display = 'none';
                 }
                 
-                // Show/hide edit controls
+                // Hide edit controls permanently (not needed anymore - edit button opens dialog directly)
                 const editControls = sessionEl.querySelector('.session__edit-controls');
                 if (editControls) {
-                    editControls.style.display = isEditing ? 'flex' : 'none';
+                    editControls.style.display = 'none';
                 }
                 
-                // Only disable/enable name editing, NOT sets
+                // Exercise names are always editable - no restrictions
                 // Sets are always editable
-                const nameElements = sessionEl.querySelectorAll('.exercise__name:not(.editing)');
-                nameElements.forEach(el => {
-                    if (!isEditing) {
-                        el.style.pointerEvents = 'none';
-                        el.style.opacity = '0.7';
-                    } else {
-                        el.style.pointerEvents = 'auto';
-                        el.style.opacity = '1';
-                    }
-                });
-                
-                // Enable/disable exercise deletion (only in edit mode)
-                const deleteExerciseBtns = sessionEl.querySelectorAll('.js-del-ex');
-                deleteExerciseBtns.forEach(btn => {
-                    btn.disabled = !isEditing;
-                });
+                // Exercise deletion is always available - no restrictions
             }
 
             function hasUnsavedChanges() {
@@ -5493,15 +5903,10 @@
             function addExercise(sessionId, name) {
                 const s = app.sessions.find(x => x.id === sessionId); if (!s) return;
                 
-                // Check if session is in edit mode
-                const editState = app.editingSessions[sessionId];
-                if (!editState || !editState.isEditing) {
-                    toast('Activa el modo edición para añadir ejercicios', 'warn');
-                    return;
-                }
+                // No edit mode required - always allow adding exercises
                 
                 s.exercises.push({ id: uuid(), name, sets: [{ id: uuid(), setNumber: 1, kg: '', reps: '', rir: '' }] });
-                markSessionAsChanged(sessionId);
+                save();
                 refresh({ preserveTab: true });
             }
             
@@ -5509,38 +5914,78 @@
                 const s = app.sessions.find(x => x.id === sessionId);
                 if (!s) return;
                 
-                // Check if session is in edit mode
-                const editState = app.editingSessions[sessionId];
-                if (!editState || !editState.isEditing) {
-                    toast('Activa el modo edición para eliminar ejercicios', 'warn');
-                    return;
-                }
-                
-                // Mark as changed and remove exercise
-                s.exercises = s.exercises.filter(e => e.id !== exId);
-                markSessionAsChanged(sessionId);
-                refresh({ preserveTab: true });
-            }
-            
-            function updateExerciseName(sessionId, exId, newName) {
-                const s = app.sessions.find(x => x.id === sessionId);
-                if (!s) return;
+                // No edit mode required - always allow deleting exercises (with confirmation)
                 const ex = s.exercises.find(e => e.id === exId);
                 if (!ex) return;
                 
-                // Check if session is in edit mode
-                const editState = app.editingSessions[sessionId];
-                if (!editState || !editState.isEditing) {
-                    return false;
-                }
+                // Show confirmation dialog
+                app.deleteTarget = { type: 'exercise', sessionId, exId };
+                showConfirmDialog(`¿Estás seguro de que quieres eliminar el ejercicio "${ex.name}"? Esta acción no se puede deshacer.`);
+            }
+            
+            function updateExerciseName(sessionId, exId, newName, oldName = null) {
+                const s = app.sessions.find(x => x.id === sessionId);
+                if (!s) return false;
+                const ex = s.exercises.find(e => e.id === exId);
+                if (!ex) return false;
+                
+                // No edit mode required - always allow editing
                 
                 if (!newName || !newName.trim()) {
                     toast('El nombre del ejercicio no puede estar vacío', 'warn');
                     return false;
                 }
-                ex.name = newName.trim();
-                markSessionAsChanged(sessionId);
+                
+                const trimmedNewName = newName.trim();
+                const trimmedOldName = oldName ? oldName.trim() : ex.name.trim();
+                
+                // If name hasn't changed, do nothing
+                if (trimmedNewName === trimmedOldName) {
+                    return true;
+                }
+                
+                // Remove statistics from old name (don't migrate - old name should not count for stats)
+                if (trimmedOldName !== trimmedNewName) {
+                    // Remove PRs for the old name (only for this specific exercise)
+                    // Note: We don't migrate stats - the old name should not count for statistics
+                    // The new name will have its stats recalculated from scratch below
+                    
+                    // Initialize PRs for new name if needed
+                    if (!app.prs[trimmedNewName]) {
+                        app.prs[trimmedNewName] = { maxKg: 0, maxVolume: 0, maxRepsByKg: {} };
+                    }
+                    
+                    // Initialize 1RM for new name if needed
+                    if (!app.onerm[trimmedNewName]) {
+                        app.onerm[trimmedNewName] = 0;
+                    }
+                }
+                
+                // Update the current exercise name
+                ex.name = trimmedNewName;
+                
+                // Recalculate statistics for all sets with the new name
+                if (ex.sets && ex.sets.length > 0) {
+                    ex.sets.forEach(set => {
+                        if (set.kg && set.reps) {
+                            checkAndRecordPRs(sessionId, exId, set.id, trimmedNewName);
+                            const onerm = calculate1RM(set.kg, set.reps);
+                            if (onerm) {
+                                update1RM(trimmedNewName, onerm);
+                            }
+                        }
+                    });
+                }
+                
+                // Update exercise notes if they exist
+                const noteKey = `${sessionId}_${exId}`;
+                if (app.exerciseNotes && app.exerciseNotes[noteKey]) {
+                    // Notes are tied to session and exercise ID, not name, so no migration needed
+                }
+                
+                save();
                 refresh({ preserveTab: true });
+                toast(`Ejercicio renombrado: "${trimmedOldName}" → "${trimmedNewName}"`, 'ok');
                 return true;
             }
             
@@ -5764,7 +6209,14 @@
 
                 // Use shared filters (same as chart)
                 const metric = sharedMetric ? sharedMetric.value : (app.chartState.metric || 'volume');
-                const exerciseFilter = sharedExercise ? sharedExercise.value : (app.chartState.exercise || 'all');
+                // For input field, check value or use 'all' if empty
+                let exerciseFilter = 'all';
+                if (sharedExercise) {
+                    const exerciseValue = sharedExercise.value.trim();
+                    exerciseFilter = exerciseValue === '' ? 'all' : exerciseValue;
+                } else {
+                    exerciseFilter = app.chartState.exercise || 'all';
+                }
                 const period = sharedPeriod ? parseInt(sharedPeriod.value) : (app.chartState.period || 4);
 
                 // Get exercises to show (filtered by exerciseFilter)
@@ -5865,12 +6317,207 @@
                         comparisonValue = comparisonAvgRir;
                     }
 
-                    // Calculate progress
+                    // Calculate progress - compare current period with previous period of same length
                     let progressText = 'Sin datos';
                     let progressClass = 'progress--same';
+                    let baseValue = comparisonValue;
+                    
+                    // Check if comparison period has sufficient data
+                    // Group comparison period sessions by week to verify we have enough weeks
+                    const comparisonWeeks = new Set();
+                    comparisonPeriodSessions.forEach(s => {
+                        const d = parseLocalDate(s.date);
+                        const weekStart = startOfWeek(d);
+                        const weekKey = weekStart.toISOString().split('T')[0];
+                        comparisonWeeks.add(weekKey);
+                    });
+                    
+                    // Check if comparison period has sessions for this exercise
+                    const hasComparisonData = comparisonPeriodSessions.some(s => {
+                        const ex = (s.exercises || []).find(e => e.name === exerciseName);
+                        return ex && ex.sets && ex.sets.length > 0;
+                    });
+                    
+                    // Check if comparison period has enough weeks (should match current period length)
+                    const hasEnoughWeeks = comparisonWeeks.size >= period;
 
-                    if (comparisonValue > 0) {
-                        const diff = ((currentValue - comparisonValue) / comparisonValue * 100);
+                    // If no comparison period data for this exercise OR not enough weeks, compare with first week of data
+                    if ((comparisonValue === 0 || !hasComparisonData || !hasEnoughWeeks) && currentValue > 0) {
+                        // Find first week with this exercise
+                        const allSessionsWithExercise = [...app.sessions]
+                            .filter(s => {
+                                const ex = (s.exercises || []).find(e => e.name === exerciseName);
+                                return ex && ex.sets && ex.sets.length > 0;
+                            })
+                            .sort((a, b) => new Date(a.date) - new Date(b.date));
+                        
+                        if (allSessionsWithExercise.length > 0) {
+                            // Group sessions by week
+                            const sessionsByWeek = new Map();
+                            allSessionsWithExercise.forEach(s => {
+                                const d = parseLocalDate(s.date);
+                                const weekStart = startOfWeek(d);
+                                const weekKey = weekStart.toISOString().split('T')[0];
+                                
+                                if (!sessionsByWeek.has(weekKey)) {
+                                    sessionsByWeek.set(weekKey, []);
+                                }
+                                sessionsByWeek.get(weekKey).push(s);
+                            });
+                            
+                            // Get first week
+                            const firstWeekKey = Array.from(sessionsByWeek.keys()).sort()[0];
+                            const firstWeekSessions = sessionsByWeek.get(firstWeekKey);
+                            
+                            // Calculate stats for first week
+                            const firstWeekStats = { maxKg: 0, totalReps: 0, totalVol: 0, rirSum: 0, rirCount: 0 };
+                            firstWeekSessions.forEach(s => {
+                                const ex = s.exercises.find(e => e.name === exerciseName);
+                                if (ex) {
+                                    ex.sets.forEach(st => {
+                                        const kg = parseFloat(st.kg) || 0;
+                                        const reps = parseReps(st.reps);
+                                        const rir = parseRIR(st.rir);
+                                        firstWeekStats.maxKg = Math.max(firstWeekStats.maxKg, kg);
+                                        if (reps > 0) {
+                                            firstWeekStats.totalReps += reps;
+                                            firstWeekStats.totalVol += kg * reps;
+                                        }
+                                        if (rir > 0) {
+                                            firstWeekStats.rirSum += rir;
+                                            firstWeekStats.rirCount++;
+                                        }
+                                    });
+                                }
+                            });
+                            
+                            const firstWeekAvgRir = firstWeekStats.rirCount > 0 ? firstWeekStats.rirSum / firstWeekStats.rirCount : 0;
+                            
+                            // Get first week value based on metric
+                            // When no comparison period exists, compare last week of current period with first week
+                            // This gives a meaningful progress percentage (week-to-week comparison)
+                            const lastWeekSessions = [];
+                            const lastWeekStart = addDays(base, -(period - 1) * 7);
+                            const lastWeekEnd = addDays(lastWeekStart, 6);
+                            currentPeriodSessions.forEach(s => {
+                                const d = parseLocalDate(s.date);
+                                if (d >= lastWeekStart && d <= lastWeekEnd) {
+                                    lastWeekSessions.push(s);
+                                }
+                            });
+                            
+                            // Calculate last week stats
+                            const lastWeekStats = { maxKg: 0, totalVol: 0, rirSum: 0, rirCount: 0 };
+                            lastWeekSessions.forEach(s => {
+                                const ex = (s.exercises || []).find(e => e.name === exerciseName);
+                                if (ex) {
+                                    ex.sets.forEach(st => {
+                                        const kg = parseFloat(st.kg) || 0;
+                                        const reps = parseReps(st.reps);
+                                        const rir = parseRIR(st.rir);
+                                        lastWeekStats.maxKg = Math.max(lastWeekStats.maxKg, kg);
+                                        if (reps > 0) {
+                                            lastWeekStats.totalVol += kg * reps;
+                                        }
+                                        if (rir > 0) {
+                                            lastWeekStats.rirSum += rir;
+                                            lastWeekStats.rirCount++;
+                                        }
+                                    });
+                                }
+                            });
+                            const lastWeekAvgRir = lastWeekStats.rirCount > 0 ? lastWeekStats.rirSum / lastWeekStats.rirCount : 0;
+                            
+                            // Compare last week with first week (week-to-week comparison)
+                            // Always use week-to-week comparison when no comparison period exists
+                            if (metric === 'volume') {
+                                // Use last week volume, or if no data in last week, use the most recent week with data
+                                if (lastWeekStats.totalVol > 0) {
+                                    currentValue = lastWeekStats.totalVol;
+                                } else {
+                                    // Find most recent week with data
+                                    const weeksWithData = Array.from(sessionsByWeek.keys()).sort().reverse();
+                                    for (const weekKey of weeksWithData) {
+                                        const weekSessions = sessionsByWeek.get(weekKey);
+                                        let weekVol = 0;
+                                        weekSessions.forEach(s => {
+                                            const ex = s.exercises.find(e => e.name === exerciseName);
+                                            if (ex) {
+                                                ex.sets.forEach(st => {
+                                                    const kg = parseFloat(st.kg) || 0;
+                                                    const reps = parseReps(st.reps);
+                                                    if (reps > 0) {
+                                                        weekVol += kg * reps;
+                                                    }
+                                                });
+                                            }
+                                        });
+                                        if (weekVol > 0) {
+                                            currentValue = weekVol;
+                                            break;
+                                        }
+                                    }
+                                }
+                                baseValue = firstWeekStats.totalVol;
+                            } else if (metric === 'weight') {
+                                if (lastWeekStats.maxKg > 0) {
+                                    currentValue = lastWeekStats.maxKg;
+                                } else {
+                                    // Find most recent week with data
+                                    const weeksWithData = Array.from(sessionsByWeek.keys()).sort().reverse();
+                                    for (const weekKey of weeksWithData) {
+                                        const weekSessions = sessionsByWeek.get(weekKey);
+                                        let weekMaxKg = 0;
+                                        weekSessions.forEach(s => {
+                                            const ex = s.exercises.find(e => e.name === exerciseName);
+                                            if (ex) {
+                                                ex.sets.forEach(st => {
+                                                    const kg = parseFloat(st.kg) || 0;
+                                                    weekMaxKg = Math.max(weekMaxKg, kg);
+                                                });
+                                            }
+                                        });
+                                        if (weekMaxKg > 0) {
+                                            currentValue = weekMaxKg;
+                                            break;
+                                        }
+                                    }
+                                }
+                                baseValue = firstWeekStats.maxKg;
+                            } else if (metric === 'rir') {
+                                if (lastWeekAvgRir > 0) {
+                                    currentValue = lastWeekAvgRir;
+                                } else {
+                                    // Find most recent week with data
+                                    const weeksWithData = Array.from(sessionsByWeek.keys()).sort().reverse();
+                                    for (const weekKey of weeksWithData) {
+                                        const weekSessions = sessionsByWeek.get(weekKey);
+                                        let rirSum = 0, rirCount = 0;
+                                        weekSessions.forEach(s => {
+                                            const ex = s.exercises.find(e => e.name === exerciseName);
+                                            if (ex) {
+                                                ex.sets.forEach(st => {
+                                                    const rir = parseRIR(st.rir);
+                                                    if (rir > 0) {
+                                                        rirSum += rir;
+                                                        rirCount++;
+                                                    }
+                                                });
+                                            }
+                                        });
+                                        if (rirCount > 0) {
+                                            currentValue = rirSum / rirCount;
+                                            break;
+                                        }
+                                    }
+                                }
+                                baseValue = firstWeekAvgRir;
+                            }
+                        }
+                    }
+
+                    if (baseValue > 0) {
+                        const diff = ((currentValue - baseValue) / baseValue * 100);
                         if (diff > 0) {
                             progressText = `+${diff.toFixed(1)}%`;
                             progressClass = 'progress--up';
@@ -5919,26 +6566,136 @@
                 }
 
                 if (sharedExercise) {
-                    // Populate exercise selector
+                    // Get all exercises
                     const allExercises = new Set();
                     app.sessions.forEach(s => {
                         (s.exercises || []).forEach(e => allExercises.add(e.name));
                     });
-                    sharedExercise.innerHTML = '<option value="all">Todos los ejercicios</option>';
-                    [...allExercises].sort().forEach(ex => {
-                        const opt = document.createElement('option');
-                        opt.value = ex;
-                        opt.textContent = ex;
-                        if (app.chartState.exercise === ex) opt.selected = true;
-                        sharedExercise.appendChild(opt);
-                    });
+                    const exercisesList = [...allExercises].sort();
                     
-                    sharedExercise.value = app.chartState.exercise || 'all';
-                    sharedExercise.onchange = () => {
-                        app.chartState.exercise = sharedExercise.value;
+                    // Set initial value
+                    const currentExercise = app.chartState.exercise || 'all';
+                    if (currentExercise === 'all') {
+                        sharedExercise.value = '';
+                        sharedExercise.placeholder = 'Todos los ejercicios';
+                    } else {
+                        sharedExercise.value = currentExercise;
+                    }
+                    
+                    const suggestionsDiv = $('#exerciseSuggestions');
+                    let highlightedIndex = -1;
+                    
+                    // Function to filter and show suggestions
+                    const showSuggestions = (query) => {
+                        if (!suggestionsDiv) return;
+                        
+                        const queryLower = query.toLowerCase().trim();
+                        let filtered = [];
+                        
+                        if (queryLower === '') {
+                            // Show "Todos los ejercicios" option
+                            filtered = [{ name: 'all', display: 'Todos los ejercicios' }];
+                        } else {
+                            // Filter exercises that start with the query
+                            filtered = exercisesList
+                                .filter(ex => ex.toLowerCase().startsWith(queryLower))
+                                .map(ex => ({ name: ex, display: ex }));
+                        }
+                        
+                        if (filtered.length === 0) {
+                            suggestionsDiv.style.display = 'none';
+                            return;
+                        }
+                        
+                        suggestionsDiv.innerHTML = '';
+                        filtered.forEach((item, index) => {
+                            const div = document.createElement('div');
+                            div.className = `exercise-suggestion-item ${item.name === 'all' ? 'all-exercises' : ''}`;
+                            div.textContent = item.display;
+                            div.dataset.exercise = item.name;
+                            div.addEventListener('click', () => {
+                                selectExercise(item.name);
+                            });
+                            suggestionsDiv.appendChild(div);
+                        });
+                        
+                        suggestionsDiv.style.display = 'block';
+                        highlightedIndex = -1;
+                    };
+                    
+                    // Function to select an exercise
+                    const selectExercise = (exerciseName) => {
+                        if (exerciseName === 'all') {
+                            sharedExercise.value = '';
+                            sharedExercise.placeholder = 'Todos los ejercicios';
+                            app.chartState.exercise = 'all';
+                        } else {
+                            sharedExercise.value = exerciseName;
+                            app.chartState.exercise = exerciseName;
+                        }
+                        suggestionsDiv.style.display = 'none';
                         drawChart();
                         buildStats();
                     };
+                    
+                    // Input event listener
+                    sharedExercise.addEventListener('input', (e) => {
+                        const query = e.target.value;
+                        showSuggestions(query);
+                    });
+                    
+                    // Focus event listener
+                    sharedExercise.addEventListener('focus', () => {
+                        if (sharedExercise.value.trim() === '') {
+                            showSuggestions('');
+                        } else {
+                            showSuggestions(sharedExercise.value);
+                        }
+                    });
+                    
+                    // Keyboard navigation
+                    sharedExercise.addEventListener('keydown', (e) => {
+                        const items = suggestionsDiv.querySelectorAll('.exercise-suggestion-item');
+                        if (items.length === 0) return;
+                        
+                        if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            highlightedIndex = Math.min(highlightedIndex + 1, items.length - 1);
+                            items.forEach((item, idx) => {
+                                item.classList.toggle('highlighted', idx === highlightedIndex);
+                            });
+                            items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+                        } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            highlightedIndex = Math.max(highlightedIndex - 1, -1);
+                            items.forEach((item, idx) => {
+                                item.classList.toggle('highlighted', idx === highlightedIndex);
+                            });
+                            if (highlightedIndex >= 0) {
+                                items[highlightedIndex].scrollIntoView({ block: 'nearest' });
+                            }
+                        } else if (e.key === 'Enter') {
+                            e.preventDefault();
+                            if (highlightedIndex >= 0 && items[highlightedIndex]) {
+                                const exerciseName = items[highlightedIndex].dataset.exercise;
+                                selectExercise(exerciseName);
+                            } else if (items.length > 0) {
+                                // Select first item if nothing is highlighted
+                                const exerciseName = items[0].dataset.exercise;
+                                selectExercise(exerciseName);
+                            }
+                        } else if (e.key === 'Escape') {
+                            suggestionsDiv.style.display = 'none';
+                            sharedExercise.blur();
+                        }
+                    });
+                    
+                    // Close suggestions when clicking outside
+                    document.addEventListener('click', (e) => {
+                        if (!sharedExercise.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                            suggestionsDiv.style.display = 'none';
+                        }
+                    });
                 }
 
                 if (sharedPeriod) {
@@ -6033,7 +6790,14 @@
                 const sharedPeriod = $('#sharedPeriod');
                 
                 const period = sharedPeriod ? parseInt(sharedPeriod.value) : (app.chartState.period || 4);
-                const filter = sharedExercise ? sharedExercise.value : (app.chartState.exercise || 'all');
+                // For input field, check value or use 'all' if empty
+                let filter = 'all';
+                if (sharedExercise) {
+                    const exerciseValue = sharedExercise.value.trim();
+                    filter = exerciseValue === '' ? 'all' : exerciseValue;
+                } else {
+                    filter = app.chartState.exercise || 'all';
+                }
                 const metric = sharedMetric ? sharedMetric.value : (app.chartState.metric || 'volume');
                 const { weeks, values } = weeklyData(period, filter, metric);
 
@@ -6590,10 +7354,16 @@
                     if (!card) return;
                     const id = card.dataset.id;
 
-                    // Edit session button - start editing mode
+                    // Edit session button - open edit dialog (name and date only)
                     if (e.target.closest('.js-edit-session')) {
                         e.preventDefault();
-                        startEditingSession(id);
+                        const session = app.sessions.find(s => s.id === id);
+                        if (session) {
+                            $('#editSessionDialog').dataset.sessionId = id;
+                            $('#editSessionName').value = session.name || '';
+                            $('#editSessionDate').value = session.date || '';
+                            $('#editSessionDialog').showModal();
+                        }
                         return;
                     }
 
@@ -6634,12 +7404,7 @@
                     }
 
                     if (e.target.closest('.js-add-ex')) {
-                        // Adding exercises requires edit mode (it's a name change)
-                        const editState = app.editingSessions[id];
-                        if (!editState || !editState.isEditing) {
-                            toast('Activa el modo edición para añadir ejercicios', 'warn');
-                            return;
-                        }
+                        // Adding exercises - no edit mode required
                         app.currentSessionId = id;
                         $('#exerciseName').value = '';
                         $('#exerciseDialog').showModal();
@@ -6789,9 +7554,34 @@
                     profilePhotoInput.addEventListener('change', handleProfilePhotoChange);
                 }
 
+                const generateAvatarBtn = document.getElementById('generateAvatar');
+                if (generateAvatarBtn) {
+                    generateAvatarBtn.addEventListener('click', handleGenerateAvatar);
+                }
+
+                const avatarStyleSelect = document.getElementById('avatarStyle');
+                if (avatarStyleSelect) {
+                    avatarStyleSelect.addEventListener('change', handleAvatarStyleChange);
+                }
+
+                const removePhotoBtn = document.getElementById('removePhoto');
+                if (removePhotoBtn) {
+                    removePhotoBtn.addEventListener('click', handleRemovePhoto);
+                }
+
                 const saveProfileBtn = document.getElementById('saveProfile');
                 if (saveProfileBtn) {
                     saveProfileBtn.addEventListener('click', handleProfileSave);
+                }
+
+                const saveBodyMeasurementsBtn = document.getElementById('saveBodyMeasurements');
+                if (saveBodyMeasurementsBtn) {
+                    saveBodyMeasurementsBtn.addEventListener('click', handleBodyMeasurementsSave);
+                }
+
+                const calculateBMRBtn = document.getElementById('calculateBMR');
+                if (calculateBMRBtn) {
+                    calculateBMRBtn.addEventListener('click', handleBMRCalculate);
                 }
 
                 const addNoteBtn = document.getElementById('addNote');
@@ -6931,12 +7721,79 @@
                     if (avatar) {
                         avatar.src = photoData;
                     }
+                    
+                    // Show remove photo button
+                    const removeBtn = $('#removePhoto');
+                    if (removeBtn) {
+                        removeBtn.style.display = 'block';
+                    }
+                    
                     toast('Foto de perfil actualizada', 'ok');
                 };
                 reader.onerror = function () {
                     toast('Error al cargar la imagen', 'err');
                 };
                 reader.readAsDataURL(file);
+            }
+
+            function handleGenerateAvatar() {
+                // Generate new random seed
+                app.profile.avatarSeed = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+                app.profile.photo = ''; // Clear photo when using generated avatar
+                save();
+                
+                const avatar = $('#profileAvatar');
+                if (avatar) {
+                    avatar.src = getCurrentAvatar();
+                }
+                
+                // Hide remove photo button
+                const removeBtn = $('#removePhoto');
+                if (removeBtn) {
+                    removeBtn.style.display = 'none';
+                }
+            }
+
+            function handleAvatarStyleChange() {
+                const styleSelect = $('#avatarStyle');
+                if (!styleSelect) return;
+                
+                app.profile.avatarStyle = styleSelect.value;
+                app.profile.photo = ''; // Clear photo when changing style
+                save();
+                
+                const avatar = $('#profileAvatar');
+                if (avatar) {
+                    avatar.src = getCurrentAvatar();
+                }
+                
+                // Hide remove photo button
+                const removeBtn = $('#removePhoto');
+                if (removeBtn) {
+                    removeBtn.style.display = 'none';
+                }
+            }
+
+            function handleRemovePhoto() {
+                app.profile.photo = '';
+                save();
+                
+                const avatar = $('#profileAvatar');
+                if (avatar) {
+                    avatar.src = getCurrentAvatar();
+                }
+                
+                const photoInput = $('#profilePhoto');
+                if (photoInput) {
+                    photoInput.value = '';
+                }
+                
+                const removeBtn = $('#removePhoto');
+                if (removeBtn) {
+                    removeBtn.style.display = 'none';
+                }
+                
+                toast('Foto eliminada', 'ok');
             }
 
             function handleProfileSave(e) {
@@ -6953,6 +7810,12 @@
                 app.profile.height = height;
                 app.profile.weight = weight;
                 app.profile.bodyFat = bodyFat;
+
+                // If no photo is set and no seed exists, generate seed from name
+                if (!app.profile.photo && !app.profile.avatarSeed) {
+                    const nameSeed = (firstName + ' ' + lastName).trim() || 'default';
+                    app.profile.avatarSeed = nameSeed;
+                }
 
                 // Add to weight history if weight or bodyFat is provided
                 if (weight || bodyFat) {
@@ -7050,11 +7913,24 @@
             function renderProfile() {
                 const avatar = $('#profileAvatar');
                 if (avatar) {
-                    avatar.src = app.profile.photo || DEFAULT_AVATAR;
+                    avatar.src = getCurrentAvatar();
                 }
+                
                 const photoInput = $('#profilePhoto');
                 if (photoInput) {
                     photoInput.value = '';
+                }
+                
+                // Set avatar style selector
+                const styleSelect = $('#avatarStyle');
+                if (styleSelect) {
+                    styleSelect.value = app.profile.avatarStyle || 'avataaars';
+                }
+                
+                // Show/hide remove photo button
+                const removeBtn = $('#removePhoto');
+                if (removeBtn) {
+                    removeBtn.style.display = app.profile.photo ? 'block' : 'none';
                 }
 
                 const firstNameInput = $('#profileFirstName');
@@ -7085,6 +7961,29 @@
                     }
                 }
 
+                // Render body measurements history
+                const bodyMeasurementsHistoryBody = $('#bodyMeasurementsHistoryBody');
+                if (bodyMeasurementsHistoryBody) {
+                    const entries = [...(app.profile.bodyMeasurementsHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+                    if (!entries.length) {
+                        bodyMeasurementsHistoryBody.innerHTML = '<tr><td colspan="7" style="padding:8px; color:var(--muted)">Sin registros aún</td></tr>';
+                    } else {
+                        bodyMeasurementsHistoryBody.innerHTML = entries.map(entry => {
+                            const date = new Date(entry.date).toLocaleDateString('es-ES', { year: 'numeric', month: 'short', day: 'numeric' });
+                            const formatValue = (val) => (typeof val === 'number' && Number.isFinite(val)) ? val.toFixed(1) : '—';
+                            return `<tr>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${date}</td>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${formatValue(entry.arms)}</td>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${formatValue(entry.chest)}</td>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${formatValue(entry.waist)}</td>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${formatValue(entry.hips)}</td>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${formatValue(entry.legs)}</td>
+                                <td style="padding:8px; border-bottom:1px solid var(--border)">${formatValue(entry.calves)}</td>
+                            </tr>`;
+                        }).join('');
+                    }
+                }
+
                 // Render notes
                 renderNotes();
 
@@ -7095,6 +7994,126 @@
 
                 // Render competitive mode
                 renderCompetitiveMode();
+            }
+
+            function handleBodyMeasurementsSave(e) {
+                if (e) e.preventDefault();
+
+                const arms = $('#measurementArms')?.value.trim() || '';
+                const chest = $('#measurementChest')?.value.trim() || '';
+                const waist = $('#measurementWaist')?.value.trim() || '';
+                const hips = $('#measurementHips')?.value.trim() || '';
+                const legs = $('#measurementLegs')?.value.trim() || '';
+                const calves = $('#measurementCalves')?.value.trim() || '';
+
+                // Check if at least one measurement is provided
+                if (!arms && !chest && !waist && !hips && !legs && !calves) {
+                    toast('Ingresa al menos una medida', 'warn');
+                    return;
+                }
+
+                const today = new Date().toISOString().split('T')[0];
+                const existingEntry = app.profile.bodyMeasurementsHistory?.find(entry => entry.date === today);
+
+                const measurements = {
+                    date: today,
+                    arms: arms ? parseFloat(arms) : null,
+                    chest: chest ? parseFloat(chest) : null,
+                    waist: waist ? parseFloat(waist) : null,
+                    hips: hips ? parseFloat(hips) : null,
+                    legs: legs ? parseFloat(legs) : null,
+                    calves: calves ? parseFloat(calves) : null
+                };
+
+                if (existingEntry) {
+                    // Update existing entry, merge with existing values
+                    if (arms) existingEntry.arms = parseFloat(arms);
+                    if (chest) existingEntry.chest = parseFloat(chest);
+                    if (waist) existingEntry.waist = parseFloat(waist);
+                    if (hips) existingEntry.hips = parseFloat(hips);
+                    if (legs) existingEntry.legs = parseFloat(legs);
+                    if (calves) existingEntry.calves = parseFloat(calves);
+                } else {
+                    if (!app.profile.bodyMeasurementsHistory) app.profile.bodyMeasurementsHistory = [];
+                    app.profile.bodyMeasurementsHistory.push(measurements);
+                }
+
+                // Clear form
+                $('#measurementArms').value = '';
+                $('#measurementChest').value = '';
+                $('#measurementWaist').value = '';
+                $('#measurementHips').value = '';
+                $('#measurementLegs').value = '';
+                $('#measurementCalves').value = '';
+
+                save();
+                renderProfile();
+                toast('Medidas guardadas', 'ok');
+            }
+
+            function handleBMRCalculate(e) {
+                if (e) e.preventDefault();
+
+                const gender = $('#bmrGender')?.value || 'male';
+                const age = parseFloat($('#bmrAge')?.value) || 0;
+                const activity = parseFloat($('#bmrActivity')?.value) || 1.2;
+                const goal = $('#bmrGoal')?.value || 'maintain';
+                const weight = parseFloat(app.profile?.weight) || 0;
+                const height = parseFloat(app.profile?.height) || 0;
+
+                if (!age || age < 1 || age > 120) {
+                    toast('Ingresa una edad válida', 'warn');
+                    return;
+                }
+
+                if (!weight || weight <= 0) {
+                    toast('Ingresa tu peso en el perfil para calcular la TMB', 'warn');
+                    return;
+                }
+
+                if (!height || height <= 0) {
+                    toast('Ingresa tu altura en el perfil para calcular la TMB', 'warn');
+                    return;
+                }
+
+                // Calculate BMR using Mifflin-St Jeor equation
+                // BMR (men) = 10 × weight(kg) + 6.25 × height(cm) - 5 × age(years) + 5
+                // BMR (women) = 10 × weight(kg) + 6.25 × height(cm) - 5 × age(years) - 161
+                let bmr = (10 * weight) + (6.25 * height) - (5 * age);
+                if (gender === 'male') {
+                    bmr += 5;
+                } else {
+                    bmr -= 161;
+                }
+
+                // Calculate TDEE (Total Daily Energy Expenditure)
+                const tdee = Math.round(bmr * activity);
+
+                // Calculate recommended calories based on goal
+                let recommendedCalories = tdee;
+                let goalText = '';
+                if (goal === 'lose') {
+                    // Deficit of 500 kcal/day for ~0.5kg/week weight loss
+                    recommendedCalories = Math.round(tdee - 500);
+                    goalText = `Para perder grasa: ${recommendedCalories} kcal/día (déficit de 500 kcal)`;
+                } else if (goal === 'gain') {
+                    // Surplus of 300-500 kcal/day for muscle gain
+                    recommendedCalories = Math.round(tdee + 400);
+                    goalText = `Para ganar masa muscular: ${recommendedCalories} kcal/día (superávit de 400 kcal)`;
+                } else {
+                    goalText = `Para mantener peso: ${recommendedCalories} kcal/día`;
+                }
+
+                // Display results
+                const resultsDiv = $('#bmrResults');
+                const bmrValue = $('#bmrValue');
+                const tdeeValue = $('#tdeeValue');
+                const recommendedCaloriesDiv = $('#recommendedCalories');
+
+                if (resultsDiv) resultsDiv.style.display = 'block';
+                if (bmrValue) bmrValue.textContent = Math.round(bmr);
+                if (tdeeValue) tdeeValue.textContent = tdee;
+                if (recommendedCaloriesDiv) recommendedCaloriesDiv.textContent = goalText;
             }
         });
     </script>
