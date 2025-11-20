@@ -571,14 +571,19 @@
         }
 
         .routine-created__body {
-            display: grid;
-            gap: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 8px;
         }
 
         .routine-created__day {
             border: 1px dashed var(--border);
             border-radius: var(--radius-sm);
             padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
         }
 
         .routine-created__day-title {
@@ -2102,8 +2107,7 @@
         }
 
         .routine-import__list {
-            display: flex;
-            flex-direction: column;
+            display: grid;
             gap: 10px;
             margin-top: 10px;
         }
@@ -2111,27 +2115,18 @@
         .routine-import__item {
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 12px;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+            padding: 10px;
+            display: grid;
+            gap: 6px;
             background: linear-gradient(180deg, rgba(255, 255, 255, .02), rgba(255, 255, 255, .00));
         }
 
         .routine-import__head {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .routine-import__head > div:first-child {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .routine-import__head .btn {
-            align-self: flex-start;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
         }
 
         /* ==================== PROFILE ==================== */

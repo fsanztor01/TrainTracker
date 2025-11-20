@@ -2937,6 +2937,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const hasEnoughWeeks = comparisonWeeks.size >= period;
 
                     // If no comparison period data for this exercise OR not enough weeks, compare with first week of data
+                    // But only if we have at least 2 weeks of data to compare
                     if ((comparisonValue === 0 || !hasComparisonData || !hasEnoughWeeks) && currentValue > 0) {
                         // Find first week with this exercise
                         const allSessionsWithExercise = [...app.sessions]
@@ -3025,14 +3026,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             // Compare last week with first week (week-to-week comparison)
                             // Always use week-to-week comparison when no comparison period exists
+                            // Check if we have multiple weeks of data
+                            const weeksWithData = Array.from(sessionsByWeek.keys()).sort();
+                            const hasMultipleWeeks = weeksWithData.length > 1;
+                            
                             if (metric === 'volume') {
                                 // Use last week volume, or if no data in last week, use the most recent week with data
                                 if (lastWeekStats.totalVol > 0) {
                                     currentValue = lastWeekStats.totalVol;
                                 } else {
                                     // Find most recent week with data
-                                    const weeksWithData = Array.from(sessionsByWeek.keys()).sort().reverse();
-                                    for (const weekKey of weeksWithData) {
+                                    const weeksWithDataReversed = weeksWithData.slice().reverse();
+                                    for (const weekKey of weeksWithDataReversed) {
                                         const weekSessions = sessionsByWeek.get(weekKey);
                                         let weekVol = 0;
                                         weekSessions.forEach(s => {
@@ -3053,14 +3058,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
                                     }
                                 }
-                                baseValue = firstWeekStats.totalVol;
+                                // Only compare if we have multiple weeks, otherwise use current period total
+                                // Only compare if we have multiple weeks, otherwise don't set baseValue (will show "Primer registro")
+                                if (hasMultipleWeeks && firstWeekStats.totalVol > 0) {
+                                    baseValue = firstWeekStats.totalVol;
+                                } else {
+                                    // If all data is in one week, don't set baseValue to show "Primer registro"
+                                    baseValue = 0;
+                                    currentValue = currentStats.totalVol;
+                                }
                             } else if (metric === 'weight') {
                                 if (lastWeekStats.maxKg > 0) {
                                     currentValue = lastWeekStats.maxKg;
                                 } else {
                                     // Find most recent week with data
-                                    const weeksWithData = Array.from(sessionsByWeek.keys()).sort().reverse();
-                                    for (const weekKey of weeksWithData) {
+                                    const weeksWithDataReversed = weeksWithData.slice().reverse();
+                                    for (const weekKey of weeksWithDataReversed) {
                                         const weekSessions = sessionsByWeek.get(weekKey);
                                         let weekMaxKg = 0;
                                         weekSessions.forEach(s => {
@@ -3078,14 +3091,21 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
                                     }
                                 }
-                                baseValue = firstWeekStats.maxKg;
+                                // Only compare if we have multiple weeks, otherwise don't set baseValue (will show "Primer registro")
+                                if (hasMultipleWeeks && firstWeekStats.maxKg > 0) {
+                                    baseValue = firstWeekStats.maxKg;
+                                } else {
+                                    // If all data is in one week, don't set baseValue to show "Primer registro"
+                                    baseValue = 0;
+                                    currentValue = currentStats.maxKg;
+                                }
                             } else if (metric === 'rir') {
                                 if (lastWeekAvgRir > 0) {
                                     currentValue = lastWeekAvgRir;
                                 } else {
                                     // Find most recent week with data
-                                    const weeksWithData = Array.from(sessionsByWeek.keys()).sort().reverse();
-                                    for (const weekKey of weeksWithData) {
+                                    const weeksWithDataReversed = weeksWithData.slice().reverse();
+                                    for (const weekKey of weeksWithDataReversed) {
                                         const weekSessions = sessionsByWeek.get(weekKey);
                                         let rirSum = 0, rirCount = 0;
                                         weekSessions.forEach(s => {
@@ -3106,22 +3126,49 @@ document.addEventListener('DOMContentLoaded', () => {
                                         }
                                     }
                                 }
-                                baseValue = firstWeekAvgRir;
+                                // Only compare if we have multiple weeks, otherwise don't set baseValue (will show "Primer registro")
+                                if (hasMultipleWeeks && firstWeekAvgRir > 0) {
+                                    baseValue = firstWeekAvgRir;
+                                } else {
+                                    // If all data is in one week, don't set baseValue to show "Primer registro"
+                                    baseValue = 0;
+                                    currentValue = currentAvgRir;
+                                }
                             }
                         }
                     }
 
                     if (baseValue > 0) {
                         const diff = ((currentValue - baseValue) / baseValue * 100);
-                        if (diff > 0) {
+                        // If difference is very small (less than 0.1%), treat as same
+                        if (Math.abs(diff) < 0.1) {
+                            // Check if we have multiple weeks of data
+                            const weeksWithData = Array.from(new Set(
+                                [...app.sessions]
+                                    .filter(s => {
+                                        const ex = (s.exercises || []).find(e => e.name === exerciseName);
+                                        return ex && ex.sets && ex.sets.length > 0;
+                                    })
+                                    .map(s => {
+                                        const d = parseLocalDate(s.date);
+                                        return startOfWeek(d).toISOString().split('T')[0];
+                                    })
+                            ));
+                            
+                            if (weeksWithData.length <= 1) {
+                                // All data in one week - show as first record
+                                progressText = 'Primer registro';
+                                progressClass = 'progress--up';
+                            } else {
+                                progressText = '0%';
+                                progressClass = 'progress--same';
+                            }
+                        } else if (diff > 0) {
                             progressText = `+${diff.toFixed(1)}%`;
                             progressClass = 'progress--up';
-                        } else if (diff < 0) {
+                        } else {
                             progressText = `${diff.toFixed(1)}%`;
                             progressClass = 'progress--down';
-                        } else {
-                            progressText = '0%';
-                            progressClass = 'progress--same';
                         }
                     } else if (currentValue > 0) {
                         progressText = 'Primer registro';
@@ -3868,22 +3915,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     exercises: (day.exercises || []).map(ex => ({
                         id: uuid(),
                         name: ex.name,
-                        sets: ((ex.sets && ex.sets.length) ? ex.sets : [{ planKg: '', planReps: '', planRir: '' }]).map((set, setIdx) => {
-                            const planKg = set.planKg !== undefined ? set.planKg : (set.kg || '');
-                            const planReps = set.planReps !== undefined ? set.planReps : (set.reps || '');
-                            const planRir = set.planRir !== undefined ? set.planRir : (set.rir || '');
-                            return {
-                                id: uuid(),
-                                setNumber: setIdx + 1,
-                                // Use plan values as actual values if they exist, so they count in statistics
-                                kg: String(set.kg || planKg || ''),
-                                reps: String(set.reps || planReps || ''),
-                                rir: String(set.rir || planRir || ''),
-                                planKg: planKg,
-                                planReps: planReps,
-                                planRir: planRir
-                            };
-                        })
+                        sets: ((ex.sets && ex.sets.length) ? ex.sets : [{ planKg: '', planReps: '', planRir: '' }]).map((set, setIdx) => ({
+                            id: uuid(),
+                            setNumber: setIdx + 1,
+                            kg: '',
+                            reps: '',
+                            rir: '',
+                            planKg: set.planKg !== undefined ? set.planKg : (set.kg || ''),
+                            planReps: set.planReps !== undefined ? set.planReps : (set.reps || ''),
+                            planRir: set.planRir !== undefined ? set.planRir : (set.rir || '')
+                        }))
                     }))
                 }));
 
