@@ -477,7 +477,26 @@
             <article class="card pop" style="padding:12px; margin-top:10px">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
                     <h4 class="summary__title" style="margin:0">Rutinas creadas</h4>
-                    <button class="btn btn--ghost btn--small" id="btnExportRoutines">📤 Exportar rutinas</button>
+                    <div style="display:flex; gap:8px; align-items:center">
+                        <button class="btn btn--ghost" id="btnImportRoutines" style="font-size:0.85rem; padding:6px 12px">🧑🏼‍💻​ Importar rutinas</button>
+                        <button class="btn btn--ghost" id="btnExportRoutines" style="font-size:0.85rem; padding:6px 12px">📤 Exportar rutinas</button>
+                    </div>
+                </div>
+                <div id="routineFileInputContainer" style="display:none; margin-bottom:8px">
+                    <div class="field">
+                        <label class="label" for="routineFileInput">Archivo JSON de rutinas</label>
+                        <input id="routineFileInput" type="file" accept="application/json,.json" class="input" />
+                    </div>
+                    <div id="routineImportAlert" class="toast toast--err hidden" role="alert" aria-live="assertive"></div>
+                    <div id="routineImportErrorList" class="import-error-list hidden"></div>
+                    <div id="routinePreview" class="card hidden" style="padding:10px; margin-top:8px">
+                        <strong>Vista previa:</strong>
+                        <ul id="routinePreviewList" style="margin:6px 0 0 16px; padding:0; list-style:disc"></ul>
+                    </div>
+                    <div class="modal__actions" style="padding:0; margin-top:8px">
+                        <button class="btn btn--secondary" id="btnConfirmImportRoutines">Importar</button>
+                        <button class="btn btn--ghost" id="btnCancelImportRoutines">Cancelar</button>
+                    </div>
                 </div>
                 <div id="importRoutineList" class="routine-import__list"></div>
                 <div class="routine-empty" id="importRoutineEmpty">Aún no tienes rutinas guardadas.</div>
@@ -845,7 +864,12 @@
                         <p>Selecciona entre rutinas de 3, 4, 5 días o PPL. Se importarán automáticamente en la semana visible.</p>
 
                         <h3>Exportar datos</h3>
-                        <p>Pulsa "Exportar sesiones" para descargar todos tus entrenamientos en formato JSON</p>
+                        <p>Puedes exportar tus datos en formato JSON:</p>
+                        <ul>
+                            <li><strong>Exportar sesiones:</strong> Pulsa "Exportar sesiones" en la sección "Importar entrenamientos" para descargar todos tus entrenamientos registrados.</li>
+                            <li><strong>Exportar rutinas:</strong> En la sección "Rutinas creadas", pulsa "📤 Exportar rutinas" para descargar todas tus rutinas personalizadas creadas.</li>
+                        </ul>
+                        <p>Los archivos exportados se descargarán con un nombre que incluye la fecha actual, facilitando su organización y respaldo.</p>
                     </div>
 
                     <div class="manual-section">

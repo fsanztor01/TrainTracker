@@ -248,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chartState: { metric: 'volume', exercise: 'all', period: 4 },
                 tmpTemplateKey: null,
                 importBuffer: null,
+                routineImportBuffer: null,
                 deleteTarget: { type: null, id: null, sessionId: null, exId: null, setId: null, routineId: null, goalId: null },
                 routineEditId: null,
                 statsPeriod: 'lastWeek', // Nuevo: período de comparación para estadísticas
@@ -3623,6 +3624,176 @@ document.addEventListener('DOMContentLoaded', () => {
                 toast('Rutinas exportadas correctamente', 'ok');
             }
 
+            function clearRoutineAlert() {
+                const alert = $('#routineImportAlert');
+                if (alert) {
+                    alert.classList.add('hidden');
+                    alert.textContent = '';
+                }
+                const errorList = $('#routineImportErrorList');
+                if (errorList) {
+                    errorList.classList.add('hidden');
+                    errorList.innerHTML = '';
+                }
+            }
+
+            function safeRoutineAlert(msg) {
+                const alert = $('#routineImportAlert');
+                if (alert) {
+                    alert.textContent = msg;
+                    alert.classList.remove('hidden');
+                }
+            }
+
+            function handleRoutineFile(e) {
+                clearRoutineAlert();
+                app.routineImportBuffer = null;
+                const preview = $('#routinePreview');
+                if (preview) preview.classList.add('hidden');
+                const previewList = $('#routinePreviewList');
+                if (previewList) previewList.innerHTML = '';
+
+                const fileList = e.target.files;
+                const file = fileList && fileList[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const data = JSON.parse(ev.target.result);
+                        if (!Array.isArray(data)) throw new Error('Formato inválido: se esperaba un array');
+
+                        // Validación de rutinas
+                        const errors = [];
+                        data.forEach((r, i) => {
+                            if (!r.name) errors.push(`Rutina ${i + 1}: falta el nombre`);
+                            if (!r.days || !Array.isArray(r.days)) errors.push(`Rutina ${i + 1}: falta el array de días`);
+
+                            if (r.days && Array.isArray(r.days)) {
+                                r.days.forEach((day, j) => {
+                                    if (!day.exercises || !Array.isArray(day.exercises)) {
+                                        errors.push(`Rutina ${i + 1}, día ${j + 1}: falta el array de ejercicios`);
+                                    }
+
+                                    if (day.exercises && Array.isArray(day.exercises)) {
+                                        day.exercises.forEach((ex, k) => {
+                                            if (!ex.name) errors.push(`Rutina ${i + 1}, día ${j + 1}, ejercicio ${k + 1}: falta el nombre`);
+                                            if (!ex.sets || !Array.isArray(ex.sets)) {
+                                                errors.push(`Rutina ${i + 1}, día ${j + 1}, ejercicio ${k + 1}: falta el array de sets`);
+                                            }
+                                        });
+                                    }
+                                });
+                            }
+                        });
+
+                        if (errors.length > 0) {
+                            const errorList = $('#routineImportErrorList');
+                            if (errorList) {
+                                errorList.innerHTML = '<strong>Errores de validación:</strong>';
+                                errors.forEach(error => {
+                                    const item = document.createElement('div');
+                                    item.className = 'import-error-item';
+                                    item.textContent = error;
+                                    errorList.appendChild(item);
+                                });
+                                errorList.classList.remove('hidden');
+                            }
+                            return;
+                        }
+
+                        app.routineImportBuffer = data;
+                        const list = $('#routinePreviewList');
+                        if (list) {
+                            data.slice(0, 10).forEach(r => {
+                                const li = document.createElement('li');
+                                li.textContent = r.name || 'Rutina sin nombre';
+                                list.appendChild(li);
+                            });
+                            if (data.length > 10) {
+                                const li = document.createElement('li');
+                                li.textContent = `… y ${data.length - 10} más`;
+                                list.appendChild(li);
+                            }
+                        }
+                        if (preview) preview.classList.remove('hidden');
+                    } catch (err) {
+                        safeRoutineAlert('El archivo no es válido. Por favor, revisa el formato.');
+                        console.error(err);
+                    }
+                };
+                reader.onerror = () => safeRoutineAlert('No se pudo leer el archivo.');
+                reader.readAsText(file);
+            }
+
+            function applyRoutineImport() {
+                if (!app.routineImportBuffer) {
+                    safeRoutineAlert('No hay datos que importar.');
+                    return;
+                }
+
+                clearRoutineAlert();
+
+                // Normalizar y agregar las rutinas
+                const importedRoutines = app.routineImportBuffer.map(r => ({
+                    id: uuid(),
+                    createdAt: new Date().toISOString(),
+                    name: String(r.name || 'Rutina sin nombre'),
+                    days: (r.days || []).map(day => ({
+                        id: uuid(),
+                        name: String(day.name || 'Día sin nombre'),
+                        exercises: (day.exercises || []).map(ex => ({
+                            id: uuid(),
+                            name: String(ex.name || 'Ejercicio'),
+                            sets: (ex.sets || []).map((set, idx) => ({
+                                id: uuid(),
+                                kg: String(set.kg || set.planKg || ''),
+                                reps: String(set.reps || set.planReps || ''),
+                                rir: String(set.rir || set.planRir || ''),
+                                planKg: String(set.planKg !== undefined ? set.planKg : (set.kg || '')),
+                                planReps: String(set.planReps !== undefined ? set.planReps : (set.reps || '')),
+                                planRir: String(set.planRir !== undefined ? set.planRir : (set.rir || ''))
+                            }))
+                        }))
+                    }))
+                }));
+
+                // Agregar las rutinas importadas
+                app.routines = [...app.routines, ...importedRoutines];
+                save();
+
+                // Limpieza
+                app.routineImportBuffer = null;
+                const fileInput = $('#routineFileInput');
+                if (fileInput) fileInput.value = '';
+                const container = $('#routineFileInputContainer');
+                if (container) container.style.display = 'none';
+                const preview = $('#routinePreview');
+                if (preview) preview.classList.add('hidden');
+                const previewList = $('#routinePreviewList');
+                if (previewList) previewList.innerHTML = '';
+
+                // Refrescar la lista de rutinas
+                renderImportRoutineList();
+                renderRoutines();
+
+                // Mensaje visual
+                toast(`Rutinas importadas correctamente (${importedRoutines.length}) ✔️`, 'ok');
+            }
+
+            function cancelRoutineImport() {
+                app.routineImportBuffer = null;
+                clearRoutineAlert();
+                const fileInput = $('#routineFileInput');
+                if (fileInput) fileInput.value = '';
+                const container = $('#routineFileInputContainer');
+                if (container) container.style.display = 'none';
+                const preview = $('#routinePreview');
+                if (preview) preview.classList.add('hidden');
+                const previewList = $('#routinePreviewList');
+                if (previewList) previewList.innerHTML = '';
+            }
+
             /* =================== Plantillas =================== */
             function openTemplatePreview(key) {
                 app.tmpTemplateKey = key;
@@ -4136,6 +4307,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('#btnImport').addEventListener('click', applyImport);
                 $('#btnExport').addEventListener('click', exportSessions);
                 $('#btnExportRoutines').addEventListener('click', exportRoutines);
+                
+                // Importar rutinas
+                $('#btnImportRoutines').addEventListener('click', () => {
+                    const container = $('#routineFileInputContainer');
+                    if (container) {
+                        container.style.display = container.style.display === 'none' ? 'block' : 'none';
+                        if (container.style.display === 'block') {
+                            const fileInput = $('#routineFileInput');
+                            if (fileInput) fileInput.focus();
+                        }
+                    }
+                });
+                $('#routineFileInput').addEventListener('change', handleRoutineFile);
+                $('#btnConfirmImportRoutines').addEventListener('click', applyRoutineImport);
+                $('#btnCancelImportRoutines').addEventListener('click', cancelRoutineImport);
 
                 // Plantillas
                 $('#templateButtons').addEventListener('click', (e) => {
