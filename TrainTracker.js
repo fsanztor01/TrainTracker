@@ -3611,6 +3611,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 URL.revokeObjectURL(url);
             }
 
+            function exportRoutines() {
+                if (!app.routines || app.routines.length === 0) {
+                    toast('No hay rutinas para exportar', 'warn');
+                    return;
+                }
+                const blob = new Blob([JSON.stringify(app.routines, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `routines_${toLocalISO(new Date())}.json`; a.click();
+                URL.revokeObjectURL(url);
+                toast('Rutinas exportadas correctamente', 'ok');
+            }
+
             /* =================== Plantillas =================== */
             function openTemplatePreview(key) {
                 app.tmpTemplateKey = key;
@@ -4123,6 +4135,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('#fileInput').addEventListener('change', handleFile);
                 $('#btnImport').addEventListener('click', applyImport);
                 $('#btnExport').addEventListener('click', exportSessions);
+                $('#btnExportRoutines').addEventListener('click', exportRoutines);
 
                 // Plantillas
                 $('#templateButtons').addEventListener('click', (e) => {
