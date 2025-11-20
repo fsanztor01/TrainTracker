@@ -482,11 +482,8 @@
                         <button class="btn btn--ghost" id="btnExportRoutines" style="font-size:0.85rem; padding:6px 12px">📤 Exportar rutinas</button>
                     </div>
                 </div>
+                <input id="routineFileInput" type="file" accept="application/json,.json" style="display:none" />
                 <div id="routineFileInputContainer" style="display:none; margin-bottom:8px">
-                    <div class="field">
-                        <label class="label" for="routineFileInput">Archivo JSON de rutinas</label>
-                        <input id="routineFileInput" type="file" accept="application/json,.json" class="input" />
-                    </div>
                     <div id="routineImportAlert" class="toast toast--err hidden" role="alert" aria-live="assertive"></div>
                     <div id="routineImportErrorList" class="import-error-list hidden"></div>
                     <div id="routinePreview" class="card hidden" style="padding:10px; margin-top:8px">

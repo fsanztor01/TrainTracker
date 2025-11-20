@@ -3765,7 +3765,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Limpieza
                 app.routineImportBuffer = null;
                 const fileInput = $('#routineFileInput');
-                if (fileInput) fileInput.value = '';
+                if (fileInput) {
+                    fileInput.value = '';
+                    // Create a new input to reset the file selection (needed for mobile)
+                    const newInput = fileInput.cloneNode(true);
+                    fileInput.parentNode.replaceChild(newInput, fileInput);
+                    newInput.addEventListener('change', (e) => {
+                        handleRoutineFile(e);
+                        const container = $('#routineFileInputContainer');
+                        if (container) {
+                            container.style.display = 'block';
+                        }
+                    });
+                }
                 const container = $('#routineFileInputContainer');
                 if (container) container.style.display = 'none';
                 const preview = $('#routinePreview');
@@ -3785,7 +3797,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.routineImportBuffer = null;
                 clearRoutineAlert();
                 const fileInput = $('#routineFileInput');
-                if (fileInput) fileInput.value = '';
+                if (fileInput) {
+                    fileInput.value = '';
+                    // Create a new input to reset the file selection (needed for mobile)
+                    const newInput = fileInput.cloneNode(true);
+                    fileInput.parentNode.replaceChild(newInput, fileInput);
+                    newInput.addEventListener('change', (e) => {
+                        handleRoutineFile(e);
+                        const container = $('#routineFileInputContainer');
+                        if (container) {
+                            container.style.display = 'block';
+                        }
+                    });
+                }
                 const container = $('#routineFileInputContainer');
                 if (container) container.style.display = 'none';
                 const preview = $('#routinePreview');
@@ -4310,16 +4334,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // Importar rutinas
                 $('#btnImportRoutines').addEventListener('click', () => {
-                    const container = $('#routineFileInputContainer');
-                    if (container) {
-                        container.style.display = container.style.display === 'none' ? 'block' : 'none';
-                        if (container.style.display === 'block') {
-                            const fileInput = $('#routineFileInput');
-                            if (fileInput) fileInput.focus();
-                        }
+                    const fileInput = $('#routineFileInput');
+                    if (fileInput) {
+                        fileInput.click();
                     }
                 });
-                $('#routineFileInput').addEventListener('change', handleRoutineFile);
+                $('#routineFileInput').addEventListener('change', (e) => {
+                    handleRoutineFile(e);
+                    // Show the container after file is selected
+                    const container = $('#routineFileInputContainer');
+                    if (container) {
+                        container.style.display = 'block';
+                    }
+                });
                 $('#btnConfirmImportRoutines').addEventListener('click', applyRoutineImport);
                 $('#btnCancelImportRoutines').addEventListener('click', cancelRoutineImport);
 
