@@ -2102,7 +2102,8 @@
         }
 
         .routine-import__list {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
             margin-top: 10px;
         }
@@ -2110,18 +2111,27 @@
         .routine-import__item {
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 10px;
-            display: grid;
-            gap: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
             background: linear-gradient(180deg, rgba(255, 255, 255, .02), rgba(255, 255, 255, .00));
         }
 
         .routine-import__head {
             display: flex;
-            justify-content: space-between;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .routine-import__head > div:first-child {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .routine-import__head .btn {
+            align-self: flex-start;
         }
 
         /* ==================== PROFILE ==================== */
