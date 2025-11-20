@@ -1,4 +1,4 @@
-# TrainTracker
+# DESARROLLADO POR FRANCISCO SANZ 
 TrainTracker es una aplicación web progresiva (PWA) diseñada para ayudarte a registrar, analizar y mejorar tus entrenamientos. Con una interfaz moderna y responsive, te permite llevar un control detallado de tu progreso, establecer objetivos y visualizar estadísticas de manera sencilla.
 
 🌟 Características Principales
@@ -58,3 +58,4 @@ Requisitos
 Navegador web moderno con soporte para JavaScript ES6+
 Se recomienda usar la última versión de Chrome, Firefox, Safari o Edge
 Alrededor de 10MB de espacio disponible en el almacenamiento local del navegador
+# DESARROLLADO POR FRANCISCO SANZ 
