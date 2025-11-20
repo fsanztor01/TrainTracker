@@ -3868,16 +3868,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     exercises: (day.exercises || []).map(ex => ({
                         id: uuid(),
                         name: ex.name,
-                        sets: ((ex.sets && ex.sets.length) ? ex.sets : [{ planKg: '', planReps: '', planRir: '' }]).map((set, setIdx) => ({
-                            id: uuid(),
-                            setNumber: setIdx + 1,
-                            kg: '',
-                            reps: '',
-                            rir: '',
-                            planKg: set.planKg !== undefined ? set.planKg : (set.kg || ''),
-                            planReps: set.planReps !== undefined ? set.planReps : (set.reps || ''),
-                            planRir: set.planRir !== undefined ? set.planRir : (set.rir || '')
-                        }))
+                        sets: ((ex.sets && ex.sets.length) ? ex.sets : [{ planKg: '', planReps: '', planRir: '' }]).map((set, setIdx) => {
+                            const planKg = set.planKg !== undefined ? set.planKg : (set.kg || '');
+                            const planReps = set.planReps !== undefined ? set.planReps : (set.reps || '');
+                            const planRir = set.planRir !== undefined ? set.planRir : (set.rir || '');
+                            return {
+                                id: uuid(),
+                                setNumber: setIdx + 1,
+                                // Use plan values as actual values if they exist, so they count in statistics
+                                kg: String(set.kg || planKg || ''),
+                                reps: String(set.reps || planReps || ''),
+                                rir: String(set.rir || planRir || ''),
+                                planKg: planKg,
+                                planReps: planReps,
+                                planRir: planRir
+                            };
+                        })
                     }))
                 }));
 
