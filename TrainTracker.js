@@ -4485,9 +4485,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Ejercicios / sets - Use both click and touch events for mobile compatibility
-        function handleSessionClick(e) {
-            // Prevent default on touch to avoid double-firing
+        // Ejercicios / sets - Handle both click and touch for mobile compatibility
+        function handleSessionInteraction(e) {
+            // Prevent default on touch to avoid double-firing and scrolling issues
             if (e.type === 'touchstart') {
                 e.preventDefault();
             }
@@ -4495,10 +4495,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const exEl = e.target.closest('.exercise');
             if (!exEl) return;
 
-            const sessionEl = e.target.closest('.session');
-            if (!sessionEl) return;
-
-            const sessionId = sessionEl.dataset.id;
+            const sessionId = e.target.closest('.session')?.dataset.id;
+            if (!sessionId) return;
             const exId = exEl.dataset.exId;
 
             if (e.target.closest('.js-add-set')) {
@@ -4522,7 +4520,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const restTimerBtn = e.target.closest('.js-rest-timer');
             if (restTimerBtn) {
-                e.preventDefault();
                 e.stopPropagation();
                 openRestTimer();
                 return;
@@ -4530,7 +4527,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const prevWeekBtn = e.target.closest('.js-prev-week-data');
             if (prevWeekBtn) {
-                e.preventDefault();
                 e.stopPropagation();
                 togglePrevWeekData(sessionId, exId, prevWeekBtn);
                 return;
@@ -4539,9 +4535,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const sessionsEl = $('#sessions');
         if (sessionsEl) {
-            // Use click for desktop and touchstart for mobile
-            sessionsEl.addEventListener('click', handleSessionClick);
-            sessionsEl.addEventListener('touchstart', handleSessionClick, { passive: false });
+            // Use click for desktop
+            sessionsEl.addEventListener('click', handleSessionInteraction);
+            // Use touchstart for mobile (with passive: false to allow preventDefault)
+            sessionsEl.addEventListener('touchstart', handleSessionInteraction, { passive: false });
         }
 
         // Use 'input' event for real-time updates while typing
@@ -4651,7 +4648,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Rest timer dialog - use event delegation with mobile support
-        function handleTimerClick(e) {
+        function handleTimerInteraction(e) {
             // Prevent default on touch to avoid double-firing
             if (e.type === 'touchstart') {
                 e.preventDefault();
@@ -4659,7 +4656,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const timerBtn = e.target.closest('.timer-btn');
             if (timerBtn) {
-                e.preventDefault();
                 e.stopPropagation();
                 const minutes = parseInt(timerBtn.dataset.minutes);
                 if (minutes) {
@@ -4670,15 +4666,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const timerCancelBtn = e.target.closest('#timerCancel');
             if (timerCancelBtn) {
-                e.preventDefault();
                 e.stopPropagation();
                 stopRestTimer();
                 return;
             }
         }
 
-        document.addEventListener('click', handleTimerClick);
-        document.addEventListener('touchstart', handleTimerClick, { passive: false });
+        document.addEventListener('click', handleTimerInteraction);
+        document.addEventListener('touchstart', handleTimerInteraction, { passive: false });
 
         // Close timer dialog when closing
         const restTimerDialog = $('#restTimerDialog');
