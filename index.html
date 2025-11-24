@@ -447,12 +447,19 @@
             </article>
 
             <article class="card pop" style="margin-top:16px">
-                <details class="achievements-details" open>
+                <h3 class="summary__title" style="margin-bottom:12px">🏆 Logros Recientes</h3>
+                <div class="achievements-recent" id="recentAchievements">
+                    <div class="routine-empty">Aún no hay logros recientes.</div>
+                </div>
+            </article>
+
+            <article class="card pop" style="margin-top:16px">
+                <details class="achievements-details">
                     <summary class="achievements-summary">
-                        <h3 class="summary__title" style="margin-bottom:0; display:inline">🏆 Logros Recientes</h3>
+                        <h3 class="summary__title" style="margin-bottom:0; display:inline">📋 Todos los Logros</h3>
                     </summary>
-                    <div class="achievements-recent" id="recentAchievements" style="margin-top:12px">
-                        <div class="routine-empty">Aún no hay logros recientes.</div>
+                    <div class="achievements-all" id="allAchievements" style="margin-top:12px">
+                        <div class="routine-empty">Aún no hay logros.</div>
                     </div>
                 </details>
             </article>
@@ -993,15 +1000,19 @@
                         <option value="loseWeight">Perder peso (kg)</option>
                         <option value="gainWeight">Ganar peso (kg)</option>
                         <option value="volume">Aumentar volumen total</option>
-                        <option value="reps">Aumentar repeticiones</option>
+                        <option value="repsWeight">Número de repeticiones</option>
                         <option value="sessions">Completar sesiones</option>
                         <option value="streak">Racha de días</option>
                         <option value="exercise">Mejorar ejercicio específico</option>
                     </select>
                 </div>
-                <div class="field">
-                    <label class="label" for="goalTarget">Meta objetivo</label>
+                <div class="field" id="goalTargetField">
+                    <label class="label" id="goalTargetLabel" for="goalTarget">Meta objetivo</label>
                     <input id="goalTarget" class="input" type="number" placeholder="Ej. 100" />
+                </div>
+                <div class="field" id="goalRepsTargetField" style="display:none">
+                    <label class="label" for="goalRepsTarget">Repeticiones Objetivo</label>
+                    <input id="goalRepsTarget" class="input" type="number" placeholder="Ej. 10" />
                 </div>
                 <div class="field" id="goalExerciseField" style="display:none">
                     <label class="label" for="goalExercise">Ejercicio específico</label>
@@ -1073,7 +1084,6 @@
                         <button type="button" class="btn btn--ghost timer-btn" data-minutes="2">2 min</button>
                         <button type="button" class="btn btn--ghost timer-btn" data-minutes="3">3 min</button>
                         <button type="button" class="btn btn--ghost timer-btn" data-minutes="4">4 min</button>
-                        <button type="button" class="btn btn--ghost timer-btn" data-minutes="5">5 min</button>
                     </div>
                 </div>
                 <div class="timer-running" id="timerRunning" style="display:none">

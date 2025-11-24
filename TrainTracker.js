@@ -958,7 +958,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (panelId === 'panel-import') { initWeekSelector(); }
             if (panelId === 'panel-routines') { renderRoutines(); }
             if (panelId === 'panel-profile') { renderProfile(); }
-            if (panelId === 'panel-goals') { renderGoals(); renderRecentAchievements(); }
+            if (panelId === 'panel-goals') { renderGoals(); renderRecentAchievements(); renderAllAchievements(); }
         }
 
         tabs.forEach(btn => {
@@ -1255,6 +1255,39 @@ document.addEventListener('DOMContentLoaded', () => {
             dayBody.appendChild(card);
             details.appendChild(dayBody);
             container.appendChild(details);
+
+            // Add toggle event listener to trigger animation each time
+            details.addEventListener('toggle', function() {
+                if (this.open) {
+                    // Remove animation class first to reset
+                    const sessionCard = this.querySelector('.session.card');
+                    if (sessionCard) {
+                        sessionCard.classList.remove('animate-in');
+                        // Force reflow to reset animation
+                        void sessionCard.offsetWidth;
+                        // Add class to trigger animation
+                        setTimeout(() => {
+                            sessionCard.classList.add('animate-in');
+                        }, 10);
+                    }
+                } else {
+                    // Remove animation class when closing
+                    const sessionCard = this.querySelector('.session.card');
+                    if (sessionCard) {
+                        sessionCard.classList.remove('animate-in');
+                    }
+                }
+            });
+
+            // Trigger animation on initial open
+            if (details.open) {
+                setTimeout(() => {
+                    const sessionCard = details.querySelector('.session.card');
+                    if (sessionCard) {
+                        sessionCard.classList.add('animate-in');
+                    }
+                }, 50);
+            }
         });
     }
     function renderExercise(session, ex) {
@@ -1806,6 +1839,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!app.weeklyGoal) app.weeklyGoal = { target: 3, current: 0 };
 
     /* =================== PR Detection System =================== */
+    function createRepsWeightAchievement(exerciseName, kg, reps) {
+        if (!app.recentAchievements) app.recentAchievements = [];
+        if (!app.achievements) app.achievements = [];
+        
+        const achievementId = `reps_${exerciseName}_${kg}kg_${reps}reps`;
+        const existingIds = new Set([
+            ...(app.recentAchievements || []).map(a => a.id),
+            ...(app.achievements || []).map(a => a.id)
+        ]);
+        
+        if (!existingIds.has(achievementId)) {
+            const achievement = {
+                id: achievementId,
+                type: 'reps-weight',
+                title: `${reps} repeticiones con ${kg} kg en ${exerciseName}`,
+                description: `Nuevo récord de repeticiones con este peso`,
+                date: new Date().toISOString(),
+                exerciseName: exerciseName,
+                kg: kg,
+                reps: reps
+            };
+            
+            app.recentAchievements.unshift(achievement);
+            if (app.recentAchievements.length > 50) {
+                app.recentAchievements = app.recentAchievements.slice(0, 50);
+            }
+            save();
+        }
+    }
+
     function checkAndRecordPRs(sessionId, exId, setId, exerciseName) {
         const session = app.sessions.find(s => s.id === sessionId);
         if (!session) return;
@@ -1880,6 +1943,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentSet.isPR = true;
                 currentSet.prType = 'reps';
             }
+            
+            // Create achievement for "X reps with Y weight"
+            createRepsWeightAchievement(exerciseName, kg, reps);
         }
 
         if (prDetected) {
@@ -1929,7 +1995,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMilestones(goal) {
         if (!goal.autoMilestones) return [];
         const milestones = [];
-        const target = parseFloat(goal.target) || 0;
+        const target = goal.type === 'repsWeight' ? (parseFloat(goal.targetReps) || 0) : (parseFloat(goal.target) || 0);
         let current = parseFloat(goal.current) || 0;
 
         // If current is 0, try to get actual progress from sessions
@@ -1940,7 +2006,43 @@ document.addEventListener('DOMContentLoaded', () => {
         const diff = target - current;
 
         // Determine milestone strategy based on goal type and difference
-        if (goal.type === 'weight' || goal.type === 'reps') {
+        if (goal.type === 'repsWeight') {
+            // For repsWeight: milestones based on target reps
+            const targetReps = parseFloat(goal.targetReps) || 0;
+            const currentReps = current;
+            const repsDiff = targetReps - currentReps;
+            
+            if (repsDiff <= 10) {
+                // Small difference: use fixed increments
+                const increment = Math.max(1, Math.ceil(repsDiff / 4));
+                let milestoneValue = currentReps;
+                while (milestoneValue < targetReps) {
+                    milestoneValue = Math.min(targetReps, milestoneValue + increment);
+                    if (milestoneValue > currentReps && milestoneValue < targetReps) {
+                        milestones.push({
+                            id: uuid(),
+                            value: Math.round(milestoneValue),
+                            completed: false,
+                            completedAt: null
+                        });
+                    }
+                }
+            } else {
+                // Large difference: use percentage-based milestones (25%, 50%, 75%)
+                const percentages = [0.25, 0.5, 0.75];
+                percentages.forEach(percent => {
+                    const milestoneValue = currentReps + (repsDiff * percent);
+                    if (milestoneValue > currentReps && milestoneValue < targetReps) {
+                        milestones.push({
+                            id: uuid(),
+                            value: Math.round(milestoneValue),
+                            completed: false,
+                            completedAt: null
+                        });
+                    }
+                });
+            }
+        } else if (goal.type === 'weight' || goal.type === 'reps') {
             // For weight/reps: use percentage-based increments (20%, 40%, 60%, 80%, 100%)
             // Or fixed increments if the difference is small
             if (diff <= 20) {
@@ -2068,6 +2170,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
                 break;
+            case 'repsWeight':
+                if (goal.exerciseName && goal.targetKg && goal.targetReps) {
+                    const exerciseSessions = sessions.flatMap(s =>
+                        (s.exercises || []).filter(e => e.name === goal.exerciseName)
+                    );
+                    exerciseSessions.forEach(ex => {
+                        (ex.sets || []).forEach(set => {
+                            const kg = parseFloat(set.kg) || 0;
+                            const reps = parseReps(set.reps);
+                            // Check if this set was done with at least the target weight
+                            // Track the maximum reps achieved with target weight or more
+                            if (kg >= goal.targetKg && reps > 0) {
+                                current = Math.max(current, reps);
+                            }
+                        });
+                    });
+                }
+                break;
             case 'sessions':
                 current = sessions.length;
                 break;
@@ -2096,6 +2216,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (goal.type === 'loseWeight' || goal.type === 'gainWeight') {
             goal.progress = Math.min(100, (newCurrent / parseFloat(goal.target)) * 100);
             goal.completed = newCurrent >= parseFloat(goal.target);
+        } else if (goal.type === 'repsWeight') {
+            // For repsWeight, goal is completed when current reps >= target reps (with target weight)
+            goal.progress = Math.min(100, (newCurrent / parseFloat(goal.targetReps)) * 100);
+            goal.completed = newCurrent >= parseFloat(goal.targetReps);
         } else {
             goal.progress = Math.min(100, (newCurrent / parseFloat(goal.target)) * 100);
             goal.completed = newCurrent >= parseFloat(goal.target);
@@ -2161,9 +2285,27 @@ document.addEventListener('DOMContentLoaded', () => {
         save();
         renderGoals();
         renderRecentAchievements();
+        renderAllAchievements();
+        
+        // Trigger celebration animation
+        setTimeout(() => {
+            createConfetti();
+            // Find goal item and add celebration class
+            const goalItem = $(`.goal-item[data-goal-id="${goal.id}"]`);
+            if (goalItem) {
+                goalItem.classList.add('fiesta-celebration');
+                setTimeout(() => {
+                    goalItem.classList.remove('fiesta-celebration');
+                }, 600);
+            }
+        }, 100);
     }
 
     function celebrateMilestone(goal, milestone) {
+        // Trigger celebration animation for milestone
+        setTimeout(() => {
+            createConfetti();
+        }, 100);
         const achievement = {
             id: uuid(),
             type: 'milestone',
@@ -2183,6 +2325,12 @@ document.addEventListener('DOMContentLoaded', () => {
         save();
         renderGoals();
         renderRecentAchievements();
+        renderAllAchievements();
+        
+        // Trigger celebration animation for milestone
+        setTimeout(() => {
+            createConfetti();
+        }, 100);
     }
 
     function addGoal(goalData) {
@@ -2190,6 +2338,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const tempGoal = {
             type: goalData.type,
             target: parseFloat(goalData.target) || 0,
+            targetKg: goalData.type === 'repsWeight' ? parseFloat(goalData.target) : null,
+            targetReps: goalData.repsTarget || null,
             exerciseName: goalData.exerciseName || null,
             current: 0
         };
@@ -2208,6 +2358,8 @@ document.addEventListener('DOMContentLoaded', () => {
             name: goalData.name,
             type: goalData.type,
             target: parseFloat(goalData.target) || 0,
+            targetKg: goalData.type === 'repsWeight' ? parseFloat(goalData.target) : null,
+            targetReps: goalData.repsTarget || null,
             current: actualCurrent,
             progress: 0,
             completed: false,
@@ -2220,6 +2372,8 @@ document.addEventListener('DOMContentLoaded', () => {
             milestones: goalData.autoMilestones ? createMilestones({
                 type: goalData.type,
                 target: goalData.target,
+                targetKg: goalData.type === 'repsWeight' ? parseFloat(goalData.target) : null,
+                targetReps: goalData.repsTarget || null,
                 current: actualCurrent,
                 exerciseName: goalData.exerciseName || null,
                 autoMilestones: true
@@ -2261,6 +2415,14 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = `goal-item ${goal.completed ? 'completed' : ''}`;
 
             const progressPercent = Math.min(100, goal.progress || 0);
+            
+            // Format goal display based on type
+            let goalDisplay = '';
+            if (goal.type === 'repsWeight' && goal.targetKg && goal.targetReps) {
+                goalDisplay = `${Math.round(goal.current)} / ${goal.targetReps} reps (con ${goal.targetKg} kg)`;
+            } else {
+                goalDisplay = `${goal.current.toFixed(1)} / ${goal.target}`;
+            }
 
             const createdDate = goal.createdAt ? new Date(goal.createdAt).toLocaleDateString('es-ES') : '';
             item.innerHTML = `
@@ -2272,7 +2434,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="goal-progress">
                             <div class="goal-stats">
-                                <span>${goal.current.toFixed(1)} / ${goal.target}</span>
+                                <span>${goalDisplay}</span>
                                 <span>${progressPercent.toFixed(0)}%</span>
                             </div>
                             <div class="goal-progress-bar">
@@ -2282,12 +2444,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         ${goal.milestones && goal.milestones.length > 0 ? `
                             <div class="goal-milestones">
-                                ${goal.milestones.map(m => `
+                                ${goal.milestones.map(m => {
+                                    let milestoneText = m.value;
+                                    if (goal.type === 'repsWeight') {
+                                        milestoneText = `${Math.round(m.value)} REPS`;
+                                    } else if (goal.type === 'weight') {
+                                        milestoneText = `${m.value} KG`;
+                                    }
+                                    return `
                                     <div class="milestone-item ${m.completed ? 'completed' : ''}">
                                         <div class="milestone-check">${m.completed ? '✓' : ''}</div>
-                                        <span>${m.value}</span>
+                                        <span>${milestoneText}</span>
                                     </div>
-                                `).join('')}
+                                `;
+                                }).join('')}
                             </div>
                         ` : ''}
                     `;
@@ -2304,7 +2474,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updateAchievementsByTime() {
+        if (!app.recentAchievements) app.recentAchievements = [];
+        if (!app.achievements) app.achievements = [];
+        
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        twoWeeksAgo.setHours(0, 0, 0, 0);
+        
+        const recent = [];
+        const toMove = [];
+        
+        app.recentAchievements.forEach(achievement => {
+            const achievementDate = new Date(achievement.date);
+            achievementDate.setHours(0, 0, 0, 0);
+            
+            if (achievementDate >= twoWeeksAgo) {
+                recent.push(achievement);
+            } else {
+                toMove.push(achievement);
+            }
+        });
+        
+        // Move old achievements to all achievements
+        if (toMove.length > 0) {
+            toMove.forEach(achievement => {
+                // Check if already exists in all achievements
+                const exists = app.achievements.some(a => a.id === achievement.id);
+                if (!exists) {
+                    app.achievements.push(achievement);
+                }
+            });
+            
+            app.achievements.sort((a, b) => new Date(b.date) - new Date(a.date));
+            app.recentAchievements = recent;
+            save();
+        }
+    }
+
     function renderRecentAchievements() {
+        updateAchievementsByTime();
+        
         const container = $('#recentAchievements');
         if (!container) return;
 
@@ -2314,12 +2524,69 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         container.innerHTML = '';
-        app.recentAchievements.slice(0, 5).forEach(achievement => {
+        app.recentAchievements.forEach(achievement => {
             const badge = document.createElement('div');
             badge.className = 'achievement-badge';
             const date = new Date(achievement.date).toLocaleDateString('es-ES');
+            const icon = achievement.type === 'goal' ? '🎯' : achievement.type === 'milestone' ? '🏆' : achievement.type === 'reps-weight' ? '💪' : '🏆';
             badge.innerHTML = `
-                        <div class="achievement-icon">${achievement.type === 'goal' ? '🎯' : '🏆'}</div>
+                        <div class="achievement-icon">${icon}</div>
+                        <div class="achievement-text">
+                            <strong>${achievement.title}</strong>
+                            <div class="achievement-date">${date}</div>
+                        </div>
+                    `;
+            container.appendChild(badge);
+        });
+    }
+
+    function renderAllAchievements() {
+        const container = $('#allAchievements');
+        if (!container) return;
+
+        // Combine recent and all achievements, removing duplicates
+        const allAchievements = [];
+        const seenIds = new Set();
+        
+        // Add all achievements first
+        (app.achievements || []).forEach(ach => {
+            if (!seenIds.has(ach.id)) {
+                allAchievements.push(ach);
+                seenIds.add(ach.id);
+            }
+        });
+        
+        // Add recent achievements that are older than 2 weeks (should already be moved, but just in case)
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        (app.recentAchievements || []).forEach(ach => {
+            const achDate = new Date(ach.date);
+            if (achDate < twoWeeksAgo && !seenIds.has(ach.id)) {
+                allAchievements.push(ach);
+                seenIds.add(ach.id);
+            }
+        });
+        
+        // Sort by date descending
+        allAchievements.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (allAchievements.length === 0) {
+            container.innerHTML = '<div class="routine-empty">Aún no hay logros.</div>';
+            return;
+        }
+
+        container.innerHTML = '';
+        allAchievements.forEach(achievement => {
+            const badge = document.createElement('div');
+            badge.className = 'achievement-badge';
+            const date = new Date(achievement.date).toLocaleDateString('es-ES', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+            const icon = achievement.type === 'goal' ? '🎯' : achievement.type === 'milestone' ? '🏆' : achievement.type === 'reps-weight' ? '💪' : '🏆';
+            badge.innerHTML = `
+                        <div class="achievement-icon">${icon}</div>
                         <div class="achievement-text">
                             <strong>${achievement.title}</strong>
                             <div class="achievement-date">${date}</div>
@@ -2719,9 +2986,93 @@ document.addEventListener('DOMContentLoaded', () => {
         app.deleteTarget = { type: 'session', id };
         showConfirmDialog('¿Estás seguro de que quieres eliminar esta sesión? Esta acción no se puede deshacer.');
     }
+    /* =================== FIESTA CELEBRATION ANIMATION =================== */
+    function triggerFiestaCelebration(sessionId) {
+        // Check if user prefers reduced motion
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        // Find the session card element
+        const sessionCard = $(`.session[data-id="${sessionId}"]`);
+        if (!sessionCard) return;
+
+        // Add celebration class to the card
+        sessionCard.classList.add('fiesta-celebration');
+        
+        // Remove class after animation completes
+        setTimeout(() => {
+            sessionCard.classList.remove('fiesta-celebration');
+        }, 600);
+
+        // Create confetti effect
+        createConfetti();
+    }
+
+    function createConfetti() {
+        // Check if user prefers reduced motion
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        // Remove existing confetti container if any
+        const existing = $('#confettiContainer');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Create confetti container
+        const container = document.createElement('div');
+        container.id = 'confettiContainer';
+        container.className = 'confetti-container';
+        document.body.appendChild(container);
+
+        // Create confetti pieces
+        const colors = [
+            'var(--primary)',
+            'var(--accent)',
+            'var(--progress-green)',
+            'var(--warn)',
+            '#ff6b9d',
+            '#a855f7',
+            '#ec4899'
+        ];
+
+        const confettiCount = 30;
+        for (let i = 0; i < confettiCount; i++) {
+            const piece = document.createElement('div');
+            piece.className = 'confetti-piece';
+            
+            // Random position at top
+            const startX = Math.random() * 100;
+            const delay = Math.random() * 0.5;
+            const duration = 1.5 + Math.random() * 1;
+            
+            piece.style.left = `${startX}%`;
+            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+            piece.style.animationDelay = `${delay}s`;
+            piece.style.animationDuration = `${duration}s`;
+            
+            // Random size
+            const size = 6 + Math.random() * 6;
+            piece.style.width = `${size}px`;
+            piece.style.height = `${size}px`;
+            
+            container.appendChild(piece);
+        }
+
+        // Remove container after animation
+        setTimeout(() => {
+            if (container.parentNode) {
+                container.remove();
+            }
+        }, 3000);
+    }
+
     function toggleCompleted(id) {
         const s = app.sessions.find(x => x.id === id);
         if (!s) return;
+        const wasCompleted = s.completed;
         s.completed = !s.completed;
         save();
         // Update competitive mode stats
@@ -2734,6 +3085,14 @@ document.addEventListener('DOMContentLoaded', () => {
             save();
         }
         refresh();
+        
+        // Trigger celebration animation if session was just completed (not uncompleted)
+        if (s.completed && !wasCompleted) {
+            // Small delay to ensure DOM is updated
+            setTimeout(() => {
+                triggerFiestaCelebration(id);
+            }, 100);
+        }
     }
     function addExercise(sessionId, name) {
         const s = app.sessions.find(x => x.id === sessionId); if (!s) return;
@@ -4772,11 +5131,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 $('#goalName').value = '';
                 $('#goalType').value = 'weight';
                 $('#goalTarget').value = '';
+                $('#goalRepsTarget').value = '';
                 $('#goalExercise').value = '';
                 $('#goalDeadline').value = '';
                 $('#goalAutoMilestones').checked = true;
                 // Show exercise field for weight type by default
                 $('#goalExerciseField').style.display = 'block';
+                $('#goalRepsTargetField').style.display = 'none';
+                $('#goalTargetLabel').textContent = 'Meta objetivo';
                 $('#goalTitle').textContent = 'Nuevo Objetivo';
                 $('#goalDialog').dataset.goalId = '';
                 $('#goalDialog').showModal();
@@ -4786,11 +5148,37 @@ document.addEventListener('DOMContentLoaded', () => {
         const goalTypeSelect = document.getElementById('goalType');
         if (goalTypeSelect) {
             goalTypeSelect.addEventListener('change', (e) => {
+                const type = e.target.value;
                 const exerciseField = $('#goalExerciseField');
-                if (e.target.value === 'exercise' || e.target.value === 'weight' || e.target.value === 'reps') {
+                const targetField = $('#goalTargetField');
+                const targetLabel = $('#goalTargetLabel');
+                const repsTargetField = $('#goalRepsTargetField');
+                
+                // Show/hide exercise field
+                if (type === 'exercise' || type === 'weight' || type === 'repsWeight') {
                     if (exerciseField) exerciseField.style.display = 'block';
                 } else {
                     if (exerciseField) exerciseField.style.display = 'none';
+                }
+                
+                // Handle repsWeight type - show two inputs
+                if (type === 'repsWeight') {
+                    if (targetLabel) targetLabel.textContent = 'KG Objetivo';
+                    if (targetField) targetField.style.display = 'block';
+                    if (repsTargetField) repsTargetField.style.display = 'block';
+                    if ($('#goalTarget')) $('#goalTarget').placeholder = 'Ej. 100';
+                    if ($('#goalRepsTarget')) $('#goalRepsTarget').placeholder = 'Ej. 10';
+                } else {
+                    if (targetLabel) targetLabel.textContent = 'Meta objetivo';
+                    if (targetField) targetField.style.display = 'block';
+                    if (repsTargetField) repsTargetField.style.display = 'none';
+                    if ($('#goalTarget')) {
+                        if (type === 'weight' || type === 'loseWeight' || type === 'gainWeight') {
+                            $('#goalTarget').placeholder = 'Ej. 100';
+                        } else {
+                            $('#goalTarget').placeholder = 'Ej. 100';
+                        }
+                    }
                 }
             });
         }
@@ -4802,6 +5190,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const name = $('#goalName').value.trim();
                 const type = $('#goalType').value;
                 const target = $('#goalTarget').value;
+                const repsTarget = $('#goalRepsTarget').value;
                 const exerciseName = $('#goalExercise').value.trim();
                 const deadline = $('#goalDeadline').value;
                 const autoMilestones = $('#goalAutoMilestones').checked;
@@ -4810,20 +5199,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     toast('Escribe el nombre del objetivo', 'warn');
                     return;
                 }
-                if (!target || parseFloat(target) <= 0) {
-                    toast('La meta debe ser mayor que 0', 'warn');
-                    return;
-                }
-                if ((type === 'exercise' || type === 'weight' || type === 'reps') && !exerciseName) {
-                    toast('Especifica el ejercicio', 'warn');
-                    return;
+                
+                if (type === 'repsWeight') {
+                    if (!target || parseFloat(target) <= 0) {
+                        toast('El KG objetivo debe ser mayor que 0', 'warn');
+                        return;
+                    }
+                    if (!repsTarget || parseFloat(repsTarget) <= 0) {
+                        toast('Las repeticiones objetivo deben ser mayores que 0', 'warn');
+                        return;
+                    }
+                    if (!exerciseName) {
+                        toast('Especifica el ejercicio', 'warn');
+                        return;
+                    }
+                } else {
+                    if (!target || parseFloat(target) <= 0) {
+                        toast('La meta debe ser mayor que 0', 'warn');
+                        return;
+                    }
+                    if ((type === 'exercise' || type === 'weight' || type === 'repsWeight') && !exerciseName) {
+                        toast('Especifica el ejercicio', 'warn');
+                        return;
+                    }
                 }
 
                 addGoal({
                     name,
                     type,
                     target,
-                    exerciseName: (type === 'exercise' || type === 'weight' || type === 'reps') ? exerciseName : null,
+                    repsTarget: type === 'repsWeight' ? parseFloat(repsTarget) : null,
+                    exerciseName: (type === 'exercise' || type === 'weight' || type === 'repsWeight') ? exerciseName : null,
                     deadline: deadline || null,
                     autoMilestones
                 });
@@ -4843,6 +5249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderProfile();
         renderGoals();
         renderRecentAchievements();
+        renderAllAchievements();
         initWeekSelector();
     }
 

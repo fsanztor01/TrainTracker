@@ -347,7 +347,25 @@ header {
 }
 
 .panel[aria-hidden="false"] {
-    display: block
+    display: block;
+}
+
+/* Enhanced panel transitions for mobile */
+@media (max-width: 767px) {
+    .panel[aria-hidden="false"] {
+        animation: panelFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes panelFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 }
 
 /* ==================== WEEK BAR + BUTTONS ==================== */
@@ -380,7 +398,7 @@ header {
     min-height: 48px;
     padding: 0 18px;
     border-radius: 16px;
-    background: linear-gradient(180deg, var(--primary), var(--primary-600));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 75%, transparent), color-mix(in srgb, var(--primary-600) 75%, transparent));
     color: #07111a;
     border: 0;
     font-weight: 800;
@@ -388,6 +406,8 @@ header {
     box-shadow: var(--shadow);
     font-size: .95rem;
     transform: translateZ(0);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .btn:hover {
@@ -406,6 +426,7 @@ header {
 
 /* Enhanced light mode buttons */
 [data-theme="light"] .btn {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 85%, transparent), color-mix(in srgb, var(--primary-600) 85%, transparent));
     box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
 }
 
@@ -426,8 +447,10 @@ header {
 }
 
 .btn--secondary {
-    background: linear-gradient(180deg, var(--accent), var(--accent-600));
-    color: #04150c
+    background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 75%, transparent), color-mix(in srgb, var(--accent-600) 75%, transparent));
+    color: #04150c;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .btn--small {
@@ -2460,6 +2483,7 @@ dialog {
 .goal-item.completed {
     border-color: var(--progress-green);
     background: linear-gradient(135deg, var(--surface), rgba(34, 211, 94, 0.1));
+    opacity: 0.6;
 }
 
 .goal-header {
@@ -2480,6 +2504,13 @@ dialog {
 .goal-actions {
     display: flex;
     gap: 8px;
+}
+
+.goal-actions .js-delete-goal {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0 8px;
+    font-size: 0.75rem;
 }
 
 .goal-progress {
@@ -2586,13 +2617,15 @@ dialog {
     color: white;
 }
 
-.achievements-recent {
+.achievements-recent,
+.achievements-all {
     display: grid;
     gap: 10px;
 }
 
 .achievement-badge {
     background: linear-gradient(135deg, var(--primary), var(--primary-600));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 50%, transparent), color-mix(in srgb, var(--primary-600) 50%, transparent));
     color: white;
     padding: 12px 16px;
     border-radius: var(--radius);
@@ -2600,6 +2633,10 @@ dialog {
     align-items: center;
     gap: 12px;
     animation: pop 0.3s ease;
+}
+
+.achievement-badge * {
+    opacity: 1;
 }
 
 .achievement-icon {
@@ -2947,4 +2984,601 @@ dialog {
 [data-theme="light"] .input,
 [data-theme="light"] .set-input {
     background: #ffffff;
+}
+
+/* ==================== SESSION COLLAPSE/EXPAND ANIMATIONS ==================== */
+/* Day panel (details element) smooth collapse/expand */
+.day-panel {
+    overflow: hidden;
+}
+
+.day-panel > summary {
+    position: relative;
+    user-select: none;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.day-panel > summary:active {
+    transform: scale(0.98);
+}
+
+.day-panel > summary::marker,
+.day-panel > summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Animate the content area using max-height technique for smooth collapse/expand */
+.day-panel > div {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+                opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 0 10px; /* Keep horizontal padding, remove vertical when closed */
+}
+
+.day-panel[open] > div {
+    max-height: 5000px; /* Large enough value to accommodate content */
+    opacity: 1;
+    padding: 10px; /* Restore full padding when open */
+}
+
+/* Ensure smooth animation for the session card inside - will be triggered by JS */
+.day-panel > div .session.card {
+    opacity: 0;
+    transform: translate(-20px, 20px) scale(0.95);
+}
+
+.day-panel[open] > div .session.card.animate-in {
+    animation: slideDownFade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Override with Diagonal animation on mobile */
+@media (max-width: 767px) {
+    .day-panel > div .session.card {
+        opacity: 0;
+        transform: translate(-20px, 20px) scale(0.95);
+    }
+
+    .day-panel[open] > div .session.card.animate-in {
+        animation: diagonalEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .day-panel[open] > div .session.card:nth-child(even).animate-in {
+        animation: diagonalEnterReverse 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+}
+
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Enhanced for mobile */
+@media (max-width: 767px) {
+    .day-panel > summary {
+        padding: 12px;
+    }
+
+    .day-panel > div {
+        transition: grid-template-rows 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                    opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+}
+
+/* ==================== MOBILE VISUAL ENHANCEMENTS & MICROINTERACTIONS ==================== */
+/* Enhanced button touch feedback for mobile */
+@media (max-width: 767px) {
+    /* Improved button press animations */
+    .btn {
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    background 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn:active {
+        transform: scale(0.96) translateY(1px);
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .btn--ghost:active {
+        transform: scale(0.96);
+        background: linear-gradient(180deg, var(--surface-2), var(--surface));
+    }
+
+    [data-theme="light"] .btn:active {
+        box-shadow: 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    [data-theme="light"] .btn--ghost:active {
+        background: linear-gradient(180deg, #f1f3f5, #f8f9fa);
+    }
+
+    /* Card entrance animations with stagger effect */
+    .sessions .session {
+        animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+
+    .sessions .session:nth-child(1) { animation-delay: 0.05s; }
+    .sessions .session:nth-child(2) { animation-delay: 0.1s; }
+    .sessions .session:nth-child(3) { animation-delay: 0.15s; }
+    .sessions .session:nth-child(4) { animation-delay: 0.2s; }
+    .sessions .session:nth-child(5) { animation-delay: 0.25s; }
+    .sessions .session:nth-child(6) { animation-delay: 0.3s; }
+    .sessions .session:nth-child(n+7) { animation-delay: 0.35s; }
+
+    @keyframes slideUpFade {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Card touch interaction */
+    .card {
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .card:active {
+        transform: scale(0.98);
+        box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.3);
+    }
+
+    [data-theme="light"] .card:active {
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Session card specific interactions - no active state to avoid hover effect */
+    .session.card {
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Override card:active for session cards to remove the hover effect */
+    .session.card:active {
+        transform: none;
+        box-shadow: var(--shadow);
+    }
+
+    [data-theme="light"] .session.card:active {
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+    }
+
+    /* Set card interactions */
+    .set-card {
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    background 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .set-card:active {
+        transform: scale(0.98);
+    }
+
+    [data-theme="light"] .set-card:active {
+        background: linear-gradient(180deg, #f8f9fa, #ffffff);
+    }
+
+    /* KPI cards entrance animation */
+    .summary__grid .kpi {
+        animation: scaleInFade 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+
+    .summary__grid .kpi:nth-child(1) { animation-delay: 0.05s; }
+    .summary__grid .kpi:nth-child(2) { animation-delay: 0.1s; }
+    .summary__grid .kpi:nth-child(3) { animation-delay: 0.15s; }
+    .summary__grid .kpi:nth-child(4) { animation-delay: 0.2s; }
+
+    @keyframes scaleInFade {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    /* Enhanced bottom navigation */
+    .bottom-nav {
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3),
+                    0 -2px 8px rgba(0, 0, 0, 0.2);
+        transition: box-shadow 0.3s ease;
+    }
+
+    [data-theme="light"] .bottom-nav {
+        backdrop-filter: blur(20px) saturate(180%);
+        -webkit-backdrop-filter: blur(20px) saturate(180%);
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08),
+                    0 -1px 4px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Navigation button enhanced interactions */
+    .nav-btn {
+        position: relative;
+        transition: color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .nav-btn::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 0;
+        height: 0;
+        border-radius: 50%;
+        background: var(--primary);
+        opacity: 0;
+        transform: translate(-50%, -50%);
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                    height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                    opacity 0.3s ease;
+        z-index: -1;
+    }
+
+    .nav-btn[aria-current="page"]::before {
+        width: 50px;
+        height: 50px;
+        opacity: 0.1;
+    }
+
+    .nav-btn:active {
+        transform: scale(0.9);
+    }
+
+    .nav-btn[aria-current="page"] {
+        transform: translateY(-2px);
+    }
+
+    .nav-btn[aria-current="page"] svg {
+        filter: drop-shadow(0 2px 4px rgba(94, 169, 255, 0.3));
+        transition: filter 0.3s ease;
+    }
+
+    /* Tab button interactions */
+    .tab-btn {
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    background 0.2s ease,
+                    color 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .tab-btn:active {
+        transform: scale(0.95);
+    }
+
+    .tab-btn[aria-selected="true"] {
+        transform: translateY(-1px);
+    }
+
+    /* Input field interactions */
+    .input:active,
+    .set-input:active {
+        transform: scale(0.99);
+        border-color: var(--primary);
+    }
+
+    .input:focus,
+    .set-input:focus {
+        transform: scale(1.01);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+                    border-color 0.2s ease,
+                    box-shadow 0.2s ease;
+    }
+
+    /* Panel transitions */
+    .panel {
+        animation: fadeInSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeInSlide {
+        from {
+            opacity: 0;
+            transform: translateX(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Dialog entrance animation */
+    dialog[open] {
+        animation: dialogSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes dialogSlideIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -48%) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+    }
+
+    /* Exercise set cards staggered animation */
+    .sets-container .set-card {
+        animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+
+    .sets-container .set-card:nth-child(1) { animation-delay: 0.05s; }
+    .sets-container .set-card:nth-child(2) { animation-delay: 0.1s; }
+    .sets-container .set-card:nth-child(3) { animation-delay: 0.15s; }
+    .sets-container .set-card:nth-child(4) { animation-delay: 0.2s; }
+    .sets-container .set-card:nth-child(5) { animation-delay: 0.25s; }
+    .sets-container .set-card:nth-child(n+6) { animation-delay: 0.3s; }
+
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(15px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Summary card entrance */
+    .summary.card {
+        animation: popIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    /* Weekbar button interactions */
+    .weekbar .btn--ghost {
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    background 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .weekbar .btn--ghost:active {
+        transform: scale(0.95);
+    }
+
+    /* Diary actions button enhancement */
+    .diary-actions .btn {
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    box-shadow 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .diary-actions .btn:active {
+        transform: scale(0.97) translateY(1px);
+    }
+
+    /* Exercise header interactions */
+    .exercise__head {
+        transition: transform 0.2s ease;
+    }
+
+    /* Mobile button specific improvements */
+    .btn--mobile {
+        transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+                    background 0.2s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn--mobile:active {
+        transform: scale(0.94);
+    }
+
+    /* Smooth scroll behavior */
+    .sessions,
+    .sets-container {
+        scroll-behavior: smooth;
+    }
+
+    /* Remove default tap highlight on interactive elements */
+    button,
+    .btn,
+    .card,
+    .set-card,
+    .nav-btn,
+    .tab-btn {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Enhanced focus states for accessibility */
+    .btn:focus-visible,
+    .nav-btn:focus-visible,
+    .tab-btn:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 2px;
+    }
+}
+
+/* Extra small screens additional polish */
+@media (max-width: 420px) {
+    /* Even smoother animations on smaller screens */
+    .sessions .session {
+        animation-duration: 0.35s;
+    }
+
+    .summary__grid .kpi {
+        animation-duration: 0.3s;
+    }
+
+    /* Tighter touch targets */
+    .btn:active {
+        transform: scale(0.97) translateY(1px);
+    }
+
+    .card:active {
+        transform: scale(0.99);
+    }
+}
+
+/* ==================== CANVA-INSPIRED ANIMATIONS ==================== */
+/* Diagonal Animation - Entry from corner with opacity and scale */
+@keyframes diagonalEnter {
+    from {
+        opacity: 0;
+        transform: translate(-20px, 20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+}
+
+@keyframes diagonalEnterReverse {
+    from {
+        opacity: 0;
+        transform: translate(20px, -20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translate(0, 0) scale(1);
+    }
+}
+
+/* Fiesta Animation - Celebration effect */
+@keyframes fiestaBounce {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.08);
+    }
+}
+
+@keyframes confettiFall {
+    0% {
+        transform: translateY(-100vh) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+    }
+}
+
+@keyframes confettiExplode {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* Confetti container */
+.confetti-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: var(--primary);
+    border-radius: 2px;
+    animation: confettiFall 2s ease-out forwards;
+}
+
+.confetti-piece:nth-child(odd) {
+    background: var(--accent);
+    animation: confettiExplode 1.5s ease-out forwards;
+}
+
+.confetti-piece:nth-child(3n) {
+    background: var(--progress-green);
+}
+
+.confetti-piece:nth-child(4n) {
+    background: var(--warn);
+}
+
+.confetti-piece:nth-child(5n) {
+    background: #ff6b9d;
+}
+
+/* Apply Diagonal animation to session cards on mobile */
+@media (max-width: 767px) {
+    .sessions .session.card {
+        animation: diagonalEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+
+    .sessions .session.card:nth-child(even) {
+        animation: diagonalEnterReverse 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+    }
+
+    /* Stagger animation delays */
+    .sessions .session.card:nth-child(1) { animation-delay: 0.05s; }
+    .sessions .session.card:nth-child(2) { animation-delay: 0.1s; }
+    .sessions .session.card:nth-child(3) { animation-delay: 0.15s; }
+    .sessions .session.card:nth-child(4) { animation-delay: 0.2s; }
+    .sessions .session.card:nth-child(5) { animation-delay: 0.25s; }
+    .sessions .session.card:nth-child(6) { animation-delay: 0.3s; }
+    .sessions .session.card:nth-child(n+7) { animation-delay: 0.35s; }
+
+    /* Apply to modals/dialogs */
+    dialog[open] {
+        animation: diagonalEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Apply to panels */
+    .panel[aria-hidden="false"] {
+        animation: diagonalEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Fiesta celebration class */
+    .fiesta-celebration {
+        animation: fiestaBounce 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+}
+
+/* Respect reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .sessions .session.card,
+    dialog[open],
+    .panel[aria-hidden="false"],
+    .fiesta-celebration {
+        animation: none !important;
+    }
+
+    .confetti-container {
+        display: none !important;
+    }
 }
