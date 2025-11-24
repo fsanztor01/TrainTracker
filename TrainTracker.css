@@ -2835,6 +2835,15 @@ dialog {
     }
 }
 
+@media (max-width: 767px) {
+    .btn--timer,
+    .btn--prev-week {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0 12px;
+    }
+}
+
 .prev-week-data {
     display: none !important;
 }

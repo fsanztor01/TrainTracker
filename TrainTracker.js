@@ -4520,16 +4520,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            if (e.target.closest('.js-rest-timer')) {
+            const restTimerBtn = e.target.closest('.js-rest-timer');
+            if (restTimerBtn) {
+                e.preventDefault();
+                e.stopPropagation();
                 openRestTimer();
                 return;
             }
 
-            if (e.target.closest('.js-prev-week-data')) {
-                const clickedButton = e.target.closest('.js-prev-week-data');
-                if (clickedButton) {
-                    togglePrevWeekData(sessionId, exId, clickedButton);
-                }
+            const prevWeekBtn = e.target.closest('.js-prev-week-data');
+            if (prevWeekBtn) {
+                e.preventDefault();
+                e.stopPropagation();
+                togglePrevWeekData(sessionId, exId, prevWeekBtn);
                 return;
             }
         }
@@ -5295,3 +5298,4 @@ document.addEventListener('DOMContentLoaded', () => {
         if (recommendedCaloriesDiv) recommendedCaloriesDiv.textContent = goalText;
     }
 });
+
