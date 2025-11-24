@@ -410,6 +410,11 @@ header {
     -webkit-backdrop-filter: blur(8px);
 }
 
+.btn * {
+    color: #07111a;
+    opacity: 1;
+}
+
 .btn:hover {
     transform: translateY(-1px)
 }
@@ -426,8 +431,14 @@ header {
 
 /* Enhanced light mode buttons */
 [data-theme="light"] .btn {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 85%, transparent), color-mix(in srgb, var(--primary-600) 85%, transparent));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 75%, transparent), color-mix(in srgb, var(--primary-600) 75%, transparent));
     box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.08), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .btn,
+[data-theme="light"] .btn * {
+    color: #07111a;
+    opacity: 1;
 }
 
 [data-theme="light"] .btn:hover {
@@ -451,6 +462,20 @@ header {
     color: #04150c;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+}
+
+.btn--secondary * {
+    color: #04150c;
+    opacity: 1;
+}
+
+.btn--secondary,
+.btn--secondary * {
+    color: #04150c;
+}
+
+.btn--secondary * {
+    opacity: 1 !important;
 }
 
 .btn--small {
@@ -2592,12 +2617,25 @@ dialog {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 0;
+    padding: 6px 8px;
     font-size: 0.9rem;
+    border-radius: var(--radius-sm);
+    margin: 2px 0;
+    background: rgba(0, 0, 0, 0.02);
 }
 
 .milestone-item.completed {
     color: var(--progress-green);
+    background: linear-gradient(135deg, var(--surface), rgba(34, 211, 94, 0.03));
+    opacity: 0.3;
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    margin: 2px 0;
+}
+
+.goal-item:not(.completed) .milestone-item.completed {
+    opacity: 1;
+    background: linear-gradient(135deg, var(--surface), rgba(34, 211, 94, 0.1));
 }
 
 .milestone-check {
@@ -2637,6 +2675,16 @@ dialog {
 
 .achievement-badge * {
     opacity: 1;
+}
+
+.achievement-badge.achievement-milestone {
+    background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 30%, transparent), color-mix(in srgb, var(--primary-600) 30%, transparent));
+}
+
+[data-theme="light"] .achievement-badge .achievement-text,
+[data-theme="light"] .achievement-badge .achievement-text strong,
+[data-theme="light"] .achievement-badge .achievement-date {
+    color: #000000;
 }
 
 .achievement-icon {
@@ -2943,6 +2991,14 @@ dialog {
 .btn--prev-week.active {
     background: linear-gradient(180deg, var(--primary), var(--primary-600));
     color: #07111a;
+}
+
+/* Style inputs when showing previous week data */
+.js-kg.showing-prev-week,
+.js-reps.showing-prev-week,
+.js-rir.showing-prev-week {
+    color: var(--primary) !important;
+    font-weight: 600;
 }
 
 @media (min-width: 768px) {

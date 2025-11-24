@@ -1727,6 +1727,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 rirInput.value = original.rir || '';
                 prevWeekOriginalValues.delete(storageKey);
             }
+            // Remove styling classes
+            kgInput.classList.remove('showing-prev-week');
+            repsInput.classList.remove('showing-prev-week');
+            rirInput.classList.remove('showing-prev-week');
             clickedButton.textContent = '👁️';
             clickedButton.classList.remove('active');
             return;
@@ -1748,6 +1752,11 @@ document.addEventListener('DOMContentLoaded', () => {
             kgInput.value = prevWeekData.kg || '';
             repsInput.value = prevWeekData.reps || '';
             rirInput.value = prevWeekData.rir || '';
+            
+            // Add class to style inputs with theme color
+            kgInput.classList.add('showing-prev-week');
+            repsInput.classList.add('showing-prev-week');
+            rirInput.classList.add('showing-prev-week');
         } else {
             // No data found - clear inputs
             kgInput.value = '';
@@ -1781,6 +1790,11 @@ document.addEventListener('DOMContentLoaded', () => {
         repsInput.value = original.reps || '';
         rirInput.value = original.rir || '';
         prevWeekOriginalValues.delete(storageKey);
+        
+        // Remove styling classes
+        kgInput.classList.remove('showing-prev-week');
+        repsInput.classList.remove('showing-prev-week');
+        rirInput.classList.remove('showing-prev-week');
 
         // Update button
         if (button) {
@@ -2526,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
         app.recentAchievements.forEach(achievement => {
             const badge = document.createElement('div');
-            badge.className = 'achievement-badge';
+            badge.className = `achievement-badge ${achievement.type === 'milestone' ? 'achievement-milestone' : ''}`;
             const date = new Date(achievement.date).toLocaleDateString('es-ES');
             const icon = achievement.type === 'goal' ? '🎯' : achievement.type === 'milestone' ? '🏆' : achievement.type === 'reps-weight' ? '💪' : '🏆';
             badge.innerHTML = `
@@ -2578,7 +2592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
         allAchievements.forEach(achievement => {
             const badge = document.createElement('div');
-            badge.className = 'achievement-badge';
+            badge.className = `achievement-badge ${achievement.type === 'milestone' ? 'achievement-milestone' : ''}`;
             const date = new Date(achievement.date).toLocaleDateString('es-ES', { 
                 year: 'numeric', 
                 month: 'short', 
