@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>TrainTracker</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="TrainTracker.css">
+    <link rel="stylesheet" href="TrainTracker.css">
 
 </head>
 
@@ -19,8 +19,10 @@
 
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
-                <button class="theme-btn" id="btnManual" aria-label="Manual de Usuario" title="Manual de Usuario">ℹ️</button>
-                <button class="theme-btn" id="themeToggle" aria-pressed="false" aria-label="Cambiar tema">🌙 Oscuro</button>
+                <button class="theme-btn" id="btnManual" aria-label="Manual de Usuario"
+                    title="Manual de Usuario">ℹ️</button>
+                <button class="theme-btn" id="themeToggle" aria-pressed="false" aria-label="Cambiar tema">🌙
+                    Oscuro</button>
             </div>
         </div>
     </header>
@@ -102,7 +104,8 @@
                     <div class="chart-control-group">
                         <label class="chart-control-label" for="sharedExercise">Ejercicio</label>
                         <div class="exercise-search-wrapper">
-                            <input type="text" id="sharedExercise" class="exercise-search-input" placeholder="Todos los ejercicios" aria-label="Buscar ejercicio" autocomplete="off" />
+                            <input type="text" id="sharedExercise" class="exercise-search-input"
+                                placeholder="Todos los ejercicios" aria-label="Buscar ejercicio" autocomplete="off" />
                             <span class="exercise-search-icon">🔍</span>
                             <div id="exerciseSuggestions" class="exercise-suggestions" style="display: none;"></div>
                         </div>
@@ -178,11 +181,16 @@
                                     <option value="thumbs">Thumbs</option>
                                 </select>
                             </div>
-                            <button type="button" class="btn btn--ghost" id="generateAvatar">Generar nuevo avatar</button>
-                            <div style="text-align:center; color:var(--muted); font-size:0.85rem; padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border)">O</div>
-                            <label class="label" for="profilePhoto" style="width:100%; text-align:center">Subir foto propia</label>
+                            <button type="button" class="btn btn--ghost" id="generateAvatar">Generar nuevo
+                                avatar</button>
+                            <div
+                                style="text-align:center; color:var(--muted); font-size:0.85rem; padding:8px 0; border-top:1px solid var(--border); border-bottom:1px solid var(--border)">
+                                O</div>
+                            <label class="label" for="profilePhoto" style="width:100%; text-align:center">Subir foto
+                                propia</label>
                             <input id="profilePhoto" type="file" accept="image/*" class="input" />
-                            <button type="button" class="btn btn--ghost btn--danger" id="removePhoto" style="display:none">Eliminar foto</button>
+                            <button type="button" class="btn btn--ghost btn--danger" id="removePhoto"
+                                style="display:none">Eliminar foto</button>
                         </div>
                     </div>
                     <div class="profile-form">
@@ -242,27 +250,33 @@
                 <div class="body-measurements-form" style="display:grid; gap:12px; margin-bottom:16px">
                     <div class="field">
                         <label class="label" for="measurementArms">Brazos (cm)</label>
-                        <input id="measurementArms" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 35.5" />
+                        <input id="measurementArms" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                            placeholder="Ej. 35.5" />
                     </div>
                     <div class="field">
                         <label class="label" for="measurementChest">Pecho (cm)</label>
-                        <input id="measurementChest" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 100" />
+                        <input id="measurementChest" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                            placeholder="Ej. 100" />
                     </div>
                     <div class="field">
                         <label class="label" for="measurementWaist">Cintura (cm)</label>
-                        <input id="measurementWaist" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 80" />
+                        <input id="measurementWaist" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                            placeholder="Ej. 80" />
                     </div>
                     <div class="field">
                         <label class="label" for="measurementHips">Caderas (cm)</label>
-                        <input id="measurementHips" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 95" />
+                        <input id="measurementHips" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                            placeholder="Ej. 95" />
                     </div>
                     <div class="field">
                         <label class="label" for="measurementLegs">Piernas (cm)</label>
-                        <input id="measurementLegs" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 60" />
+                        <input id="measurementLegs" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                            placeholder="Ej. 60" />
                     </div>
                     <div class="field">
                         <label class="label" for="measurementCalves">Gemelos (cm)</label>
-                        <input id="measurementCalves" class="input" type="number" inputmode="decimal" min="0" step="0.1" placeholder="Ej. 38" />
+                        <input id="measurementCalves" class="input" type="number" inputmode="decimal" min="0" step="0.1"
+                            placeholder="Ej. 38" />
                     </div>
                     <button class="btn" id="saveBodyMeasurements" type="button">Guardar medidas</button>
                 </div>
@@ -272,13 +286,20 @@
                         <table style="width:100%; border-collapse:collapse; font-size:0.9rem">
                             <thead>
                                 <tr>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Fecha</th>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Brazos</th>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Pecho</th>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Cintura</th>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Caderas</th>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Piernas</th>
-                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">Gemelos</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Fecha</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Brazos</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Pecho</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Cintura</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Caderas</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Piernas</th>
+                                    <th style="padding:8px; border-bottom:1px solid var(--border); text-align:left">
+                                        Gemelos</th>
                                 </tr>
                             </thead>
                             <tbody id="bodyMeasurementsHistoryBody">
@@ -325,11 +346,13 @@
                     </div>
                     <button class="btn" id="calculateBMR" type="button">Calcular</button>
                 </div>
-                <div id="bmrResults" style="margin-top:20px; padding:16px; background:var(--bg-secondary); border-radius:8px; display:none">
+                <div id="bmrResults"
+                    style="margin-top:20px; padding:16px; background:var(--bg-secondary); border-radius:8px; display:none">
                     <h4 class="summary__title" style="margin-bottom:12px; font-size:1rem">Resultados</h4>
                     <div style="display:grid; gap:8px">
                         <div><strong>TMB (Tasa Metabólica Basal):</strong> <span id="bmrValue">—</span> kcal/día</div>
-                        <div><strong>TDEE (Gasto Energético Total):</strong> <span id="tdeeValue">—</span> kcal/día</div>
+                        <div><strong>TDEE (Gasto Energético Total):</strong> <span id="tdeeValue">—</span> kcal/día
+                        </div>
                         <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border)">
                             <strong>Calorías recomendadas:</strong>
                             <div style="margin-top:4px; color:var(--accent)" id="recommendedCalories">—</div>
@@ -422,7 +445,7 @@
                     </div>
                 </details>
             </article>
-            
+
             <article class="card pop" style="margin-top:16px">
                 <details class="achievements-details" open>
                     <summary class="achievements-summary">
@@ -478,13 +501,16 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
                     <h4 class="summary__title" style="margin:0">Rutinas creadas</h4>
                     <div style="display:flex; gap:8px; align-items:center">
-                        <button class="btn btn--ghost" id="btnImportRoutines" style="font-size:0.85rem; padding:6px 12px">🧑🏼‍💻​ Importar rutinas</button>
-                        <button class="btn btn--ghost" id="btnExportRoutines" style="font-size:0.85rem; padding:6px 12px">📤 Exportar rutinas</button>
+                        <button class="btn btn--ghost" id="btnImportRoutines"
+                            style="font-size:0.85rem; padding:6px 12px">🧑🏼‍💻​ Importar rutinas</button>
+                        <button class="btn btn--ghost" id="btnExportRoutines"
+                            style="font-size:0.85rem; padding:6px 12px">📤 Exportar rutinas</button>
                     </div>
                 </div>
                 <input id="routineFileInput" type="file" accept="application/json,.json" style="display:none" />
                 <div id="routineFileInputContainer" style="display:none; margin-bottom:8px">
-                    <div id="routineImportAlert" class="toast toast--err hidden" role="alert" aria-live="assertive"></div>
+                    <div id="routineImportAlert" class="toast toast--err hidden" role="alert" aria-live="assertive">
+                    </div>
                     <div id="routineImportErrorList" class="import-error-list hidden"></div>
                     <div id="routinePreview" class="card hidden" style="padding:10px; margin-top:8px">
                         <strong>Vista previa:</strong>
@@ -504,7 +530,8 @@
     <!-- BOTTOM NAV -->
     <nav class="bottom-nav" aria-label="Navegación inferior">
         <button class="nav-btn" id="navDiary" aria-current="page" aria-label="TrainTracker">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
                 <path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H6.5A2.5 2.5 0 0 0 4 4.5v15Z" />
                 <path d="M8 2v4" />
                 <path d="M16 2v4" />
@@ -592,7 +619,8 @@
             <div class="modal__body">
                 <div class="field">
                     <label class="label" for="exerciseNoteText">Nota (puedes usar saltos de línea)</label>
-                    <textarea id="exerciseNoteText" class="input" rows="6" placeholder="Escribe tu nota aquí..."></textarea>
+                    <textarea id="exerciseNoteText" class="input" rows="6"
+                        placeholder="Escribe tu nota aquí..."></textarea>
                 </div>
             </div>
             <div class="modal__actions">
@@ -628,13 +656,17 @@
                     <div class="manual-section" id="inicio">
                         <h2>🏋️‍♂️ Inicio</h2>
                         <h3>¿Qué es TrainTracker?</h3>
-                        <p>TrainTracker es una aplicación web para registrar y analizar tus entrenamientos, ayudándote a mejorar tu progreso y alcanzar tus metas.</p>
-                        
+                        <p>TrainTracker es una aplicación web para registrar y analizar tus entrenamientos, ayudándote a
+                            mejorar tu progreso y alcanzar tus metas.</p>
+
                         <h3>Navegación</h3>
                         <ul>
-                            <li><strong>Menú superior:</strong> Pestañas principales (Diario, Estadísticas, Perfil, etc.)</li>
-                            <li><strong>Navegación inferior:</strong> Acceso rápido a Diario, Estadísticas e Importar</li>
-                            <li><strong>Cambio de tema:</strong> Botón en la esquina superior derecha para cambiar entre modo oscuro/claro</li>
+                            <li><strong>Menú superior:</strong> Pestañas principales (Diario, Estadísticas, Perfil,
+                                etc.)</li>
+                            <li><strong>Navegación inferior:</strong> Acceso rápido a Diario, Estadísticas e Importar
+                            </li>
+                            <li><strong>Cambio de tema:</strong> Botón en la esquina superior derecha para cambiar entre
+                                modo oscuro/claro</li>
                         </ul>
                     </div>
 
@@ -660,7 +692,8 @@
                             <li>Haz clic directamente sobre el nombre del ejercicio para editarlo</li>
                             <li>Aparecerán botones "💾 Guardar" y "✕ Cancelar" para confirmar o descartar el cambio</li>
                             <li>También puedes presionar Enter para guardar o Escape para cancelar</li>
-                            <li>Al cambiar el nombre, las estadísticas del nombre anterior no contarán (solo el nuevo nombre)</li>
+                            <li>Al cambiar el nombre, las estadísticas del nombre anterior no contarán (solo el nuevo
+                                nombre)</li>
                         </ul>
 
                         <h3>Registrar sets</h3>
@@ -686,7 +719,8 @@
                         </ul>
 
                         <h3>Copiar entrenamiento anterior</h3>
-                        <p>Usa "📅 Copiar día actual de la semana pasada" para replicar el entrenamiento del mismo día de la semana anterior</p>
+                        <p>Usa "📅 Copiar día actual de la semana pasada" para replicar el entrenamiento del mismo día
+                            de la semana anterior</p>
                     </div>
 
                     <div class="manual-section" id="estadisticas">
@@ -709,7 +743,8 @@
                         <ul>
                             <li><strong>Barras azules:</strong> Datos reales de cada semana</li>
                             <li><strong>Línea verde:</strong> Tendencia/promedio</li>
-                            <li><strong>Tabla detallada:</strong> Estadísticas por ejercicio con porcentaje de progreso</li>
+                            <li><strong>Tabla detallada:</strong> Estadísticas por ejercicio con porcentaje de progreso
+                            </li>
                         </ul>
                     </div>
 
@@ -765,9 +800,12 @@
                         <ul>
                             <li>En la sección "Calculadora de TMB y Calorías" puedes calcular:
                                 <ul>
-                                    <li><strong>TMB (Tasa Metabólica Basal):</strong> Las calorías que quemas en reposo</li>
-                                    <li><strong>TDEE (Gasto Energético Total):</strong> Calorías totales según tu nivel de actividad</li>
-                                    <li><strong>Calorías recomendadas:</strong> Según tu objetivo (mantener, perder grasa o ganar masa)</li>
+                                    <li><strong>TMB (Tasa Metabólica Basal):</strong> Las calorías que quemas en reposo
+                                    </li>
+                                    <li><strong>TDEE (Gasto Energético Total):</strong> Calorías totales según tu nivel
+                                        de actividad</li>
+                                    <li><strong>Calorías recomendadas:</strong> Según tu objetivo (mantener, perder
+                                        grasa o ganar masa)</li>
                                 </ul>
                             </li>
                             <li>Selecciona tu sexo, edad y nivel de actividad</li>
@@ -858,24 +896,30 @@
                         </ul>
 
                         <h3>Usar plantillas rápidas</h3>
-                        <p>Selecciona entre rutinas de 3, 4, 5 días o PPL. Se importarán automáticamente en la semana visible.</p>
+                        <p>Selecciona entre rutinas de 3, 4, 5 días o PPL. Se importarán automáticamente en la semana
+                            visible.</p>
 
                         <h3>Exportar datos</h3>
                         <p>Puedes exportar tus datos en formato JSON:</p>
                         <ul>
-                            <li><strong>Exportar sesiones:</strong> Pulsa "Exportar sesiones" en la sección "Importar entrenamientos" para descargar todos tus entrenamientos registrados.</li>
-                            <li><strong>Exportar rutinas:</strong> En la sección "Rutinas creadas", pulsa "📤 Exportar rutinas" para descargar todas tus rutinas personalizadas creadas.</li>
+                            <li><strong>Exportar sesiones:</strong> Pulsa "Exportar sesiones" en la sección "Importar
+                                entrenamientos" para descargar todos tus entrenamientos registrados.</li>
+                            <li><strong>Exportar rutinas:</strong> En la sección "Rutinas creadas", pulsa "📤 Exportar
+                                rutinas" para descargar todas tus rutinas personalizadas creadas.</li>
                         </ul>
-                        <p>Los archivos exportados se descargarán con un nombre que incluye la fecha actual, facilitando su organización y respaldo.</p>
+                        <p>Los archivos exportados se descargarán con un nombre que incluye la fecha actual, facilitando
+                            su organización y respaldo.</p>
                     </div>
 
                     <div class="manual-section">
                         <h2>💡 Consejos Útiles</h2>
                         <h3>Récords Personales (PRs)</h3>
-                        <p>La aplicación detecta automáticamente tus récords. Verás una medalla 🏆 cuando superes tus marcas anteriores.</p>
+                        <p>La aplicación detecta automáticamente tus récords. Verás una medalla 🏆 cuando superes tus
+                            marcas anteriores.</p>
 
                         <h3>1RM (Repetición Máxima)</h3>
-                        <p>La aplicación calcula tu 1RM estimado basado en tus pesos y repeticiones. Se muestra junto a cada set completado.</p>
+                        <p>La aplicación calcula tu 1RM estimado basado en tus pesos y repeticiones. Se muestra junto a
+                            cada set completado.</p>
 
                         <h3>Modo Competitivo</h3>
                         <p>En tu perfil, encontrarás:</p>
@@ -905,18 +949,23 @@
                         <p>Sí, usa la función "Exportar sesiones" en la pestaña Importar.</p>
 
                         <h3>¿Cómo puedo editar un ejercicio ya creado?</h3>
-                        <p>Haz clic directamente sobre el nombre del ejercicio para editarlo. Aparecerán botones de guardar/cancelar para confirmar el cambio.</p>
+                        <p>Haz clic directamente sobre el nombre del ejercicio para editarlo. Aparecerán botones de
+                            guardar/cancelar para confirmar el cambio.</p>
 
                         <h3>¿Puedo eliminar ejercicios?</h3>
-                        <p>Sí, puedes eliminar ejercicios en cualquier momento usando el botón ✕ junto al nombre del ejercicio. Aparecerá un diálogo de confirmación.</p>
+                        <p>Sí, puedes eliminar ejercicios en cualquier momento usando el botón ✕ junto al nombre del
+                            ejercicio. Aparecerá un diálogo de confirmación.</p>
 
                         <h3>¿Cómo funcionan las estadísticas de progreso?</h3>
-                        <p>Las estadísticas comparan el período actual con el período anterior del mismo tamaño. Si no hay datos del período anterior, se compara con el primer registro de ese ejercicio para calcular el progreso.</p>
+                        <p>Las estadísticas comparan el período actual con el período anterior del mismo tamaño. Si no
+                            hay datos del período anterior, se compara con el primer registro de ese ejercicio para
+                            calcular el progreso.</p>
                     </div>
 
                     <div class="manual-section">
                         <h2>🎉 ¡Listo para entrenar!</h2>
-                        <p>Ahora que conoces todas las funcionalidades de TrainTracker, estás listo para registrar tus entrenamientos y alcanzar tus metas.</p>
+                        <p>Ahora que conoces todas las funcionalidades de TrainTracker, estás listo para registrar tus
+                            entrenamientos y alcanzar tus metas.</p>
                     </div>
                 </div>
             </div>
@@ -1010,6 +1059,36 @@
         </form>
     </dialog>
 
+    <dialog id="restTimerDialog" aria-labelledby="restTimerTitle" aria-modal="true">
+        <form method="dialog">
+            <div class="modal__head">
+                <h3 class="modal__title" id="restTimerTitle">Temporizador de descanso</h3>
+                <button class="theme-btn" value="cancel" aria-label="Cerrar">Cerrar</button>
+            </div>
+            <div class="modal__body">
+                <div class="timer-selection" id="timerSelection">
+                    <p style="text-align:center; margin-bottom:16px; color:var(--muted)">Selecciona el tiempo de descanso:</p>
+                    <div class="timer-buttons">
+                        <button type="button" class="btn btn--ghost timer-btn" data-minutes="1">1 min</button>
+                        <button type="button" class="btn btn--ghost timer-btn" data-minutes="2">2 min</button>
+                        <button type="button" class="btn btn--ghost timer-btn" data-minutes="3">3 min</button>
+                        <button type="button" class="btn btn--ghost timer-btn" data-minutes="4">4 min</button>
+                        <button type="button" class="btn btn--ghost timer-btn" data-minutes="5">5 min</button>
+                    </div>
+                </div>
+                <div class="timer-running" id="timerRunning" style="display:none">
+                    <div class="timer-display">
+                        <div class="timer-time" id="timerTime">00:00</div>
+                        <div class="timer-label">Tiempo restante</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__actions">
+                <button class="btn btn--ghost" value="cancel" id="timerCancel" style="display:none">Cancelar</button>
+            </div>
+        </form>
+    </dialog>
+
     <!-- Templates -->
     <template id="tpl-session">
         <article class="session card pop" data-id="">
@@ -1025,7 +1104,8 @@
                 <div class="session__tools">
                     <button class="btn btn--mobile btn--ghost js-complete" title="Marcar como completada"
                         aria-pressed="false" aria-label="Marcar como completada">✓</button>
-                    <button class="btn btn--mobile btn--ghost js-edit-session" title="Editar nombre y fecha de la sesión"
+                    <button class="btn btn--mobile btn--ghost js-edit-session"
+                        title="Editar nombre y fecha de la sesión"
                         aria-label="Editar nombre y fecha de la sesión">✏️</button>
                     <button class="btn btn--mobile btn--ghost js-add-ex" title="Añadir ejercicio"
                         aria-label="Añadir ejercicio">+
@@ -1076,12 +1156,24 @@
     <template id="tpl-set">
         <tr data-set-id="">
             <td class="set-num"></td>
-            <td><input class="input js-kg" inputmode="decimal" aria-label="Kilogramos" /></td>
-            <td><input class="input js-reps" inputmode="numeric" aria-label="Repeticiones" placeholder="6, 6+1 o 6-8" />
+            <td style="position:relative">
+                <input class="input js-kg" inputmode="decimal" aria-label="Kilogramos" />
+                <div class="prev-week-data prev-week-kg" style="display:none"></div>
             </td>
-            <td><input class="input js-rir" inputmode="decimal" aria-label="RIR" placeholder="1 o 1/0" /></td>
+            <td style="position:relative">
+                <input class="input js-reps" inputmode="numeric" aria-label="Repeticiones" placeholder="6, 6+1 o 6-8" />
+                <div class="prev-week-data prev-week-reps" style="display:none"></div>
+            </td>
+            <td style="position:relative">
+                <input class="input js-rir" inputmode="decimal" aria-label="RIR" placeholder="1 o 1/0" />
+                <div class="prev-week-data prev-week-rir" style="display:none"></div>
+            </td>
             <td class="progress">Primera sesión</td>
-            <td><button class="btn btn--ghost js-del-set" aria-label="Eliminar set">✕</button></td>
+            <td>
+                <button class="btn btn--ghost btn--timer js-rest-timer" aria-label="Temporizador de descanso" title="Temporizador de descanso">⏳</button>
+                <button class="btn btn--ghost btn--prev-week js-prev-week-data" aria-label="Ver datos de la semana pasada" title="Ver datos de la semana pasada">👁️</button>
+                <button class="btn btn--ghost js-del-set" aria-label="Eliminar set">✕</button>
+            </td>
         </tr>
     </template>
 
@@ -1090,20 +1182,27 @@
         <div class="set-card" data-set-id="">
             <div class="set-header">
                 <div class="set-number">Set 1</div>
-                <button class="set-delete js-del-set" aria-label="Eliminar set">✕</button>
+                <div class="set-header-actions">
+                    <button class="btn btn--ghost btn--timer btn--small js-rest-timer" aria-label="Temporizador de descanso" title="Temporizador de descanso">⏳</button>
+                    <button class="btn btn--ghost btn--prev-week btn--small js-prev-week-data" aria-label="Ver datos de la semana pasada" title="Ver datos de la semana pasada">👁️</button>
+                    <button class="set-delete js-del-set" aria-label="Eliminar set">✕</button>
+                </div>
             </div>
             <div class="set-inputs">
-                <div class="set-input-group">
+                <div class="set-input-group" style="position:relative">
                     <label class="set-input-label">KG</label>
                     <input class="set-input js-kg" inputmode="decimal" aria-label="Kilogramos" placeholder="0" />
+                    <div class="prev-week-data prev-week-kg" style="display:none"></div>
                 </div>
-                <div class="set-input-group">
+                <div class="set-input-group" style="position:relative">
                     <label class="set-input-label">Reps</label>
                     <input class="set-input js-reps" inputmode="numeric" aria-label="Repeticiones" placeholder="0" />
+                    <div class="prev-week-data prev-week-reps" style="display:none"></div>
                 </div>
-                <div class="set-input-group">
+                <div class="set-input-group" style="position:relative">
                     <label class="set-input-label">RIR</label>
                     <input class="set-input js-rir" inputmode="decimal" aria-label="RIR" placeholder="0" />
+                    <div class="prev-week-data prev-week-rir" style="display:none"></div>
                 </div>
             </div>
             <div class="set-progress">Primera sesión</div>
@@ -1151,7 +1250,7 @@
     <!-- TOASTS -->
     <div class="toasts" id="toasts" aria-live="polite" aria-atomic="true"></div>
 
-        <script src="TrainTracker.js"></script>
+    <script src="TrainTracker.js"></script>
 
 </body>
 
