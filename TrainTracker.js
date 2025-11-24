@@ -4485,12 +4485,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Ejercicios / sets
-        $('#sessions').addEventListener('click', (e) => {
+        // Ejercicios / sets - Use both click and touch events for mobile compatibility
+        function handleSessionClick(e) {
+            // Prevent default on touch to avoid double-firing
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+            }
+
             const exEl = e.target.closest('.exercise');
             if (!exEl) return;
 
-            const sessionId = e.target.closest('.session').dataset.id;
+            const sessionEl = e.target.closest('.session');
+            if (!sessionEl) return;
+
+            const sessionId = sessionEl.dataset.id;
             const exId = exEl.dataset.exId;
 
             if (e.target.closest('.js-add-set')) {
@@ -4504,8 +4512,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (e.target.closest('.js-del-set')) {
-                const setId = e.target.closest('[data-set-id]').dataset.setId;
-                deleteSet(sessionId, exId, setId);
+                const setEl = e.target.closest('[data-set-id]');
+                if (setEl) {
+                    const setId = setEl.dataset.setId;
+                    deleteSet(sessionId, exId, setId);
+                }
                 return;
             }
 
@@ -4521,7 +4532,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return;
             }
-        });
+        }
+
+        const sessionsEl = $('#sessions');
+        if (sessionsEl) {
+            // Use click for desktop and touchstart for mobile
+            sessionsEl.addEventListener('click', handleSessionClick);
+            sessionsEl.addEventListener('touchstart', handleSessionClick, { passive: false });
+        }
 
         // Use 'input' event for real-time updates while typing
         // This prevents keyboard from closing on mobile when moving between fields
@@ -4629,11 +4647,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (textarea) textarea.value = '';
         });
 
-        // Rest timer dialog - use event delegation
-        document.addEventListener('click', (e) => {
+        // Rest timer dialog - use event delegation with mobile support
+        function handleTimerClick(e) {
+            // Prevent default on touch to avoid double-firing
+            if (e.type === 'touchstart') {
+                e.preventDefault();
+            }
+
             const timerBtn = e.target.closest('.timer-btn');
             if (timerBtn) {
                 e.preventDefault();
+                e.stopPropagation();
                 const minutes = parseInt(timerBtn.dataset.minutes);
                 if (minutes) {
                     startRestTimer(minutes);
@@ -4644,10 +4668,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const timerCancelBtn = e.target.closest('#timerCancel');
             if (timerCancelBtn) {
                 e.preventDefault();
+                e.stopPropagation();
                 stopRestTimer();
                 return;
             }
-        });
+        }
+
+        document.addEventListener('click', handleTimerClick);
+        document.addEventListener('touchstart', handleTimerClick, { passive: false });
 
         // Close timer dialog when closing
         const restTimerDialog = $('#restTimerDialog');
