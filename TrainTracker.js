@@ -4485,18 +4485,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Ejercicios / sets - Handle both click and touch for mobile compatibility
-        function handleSessionInteraction(e) {
-            // Prevent default on touch to avoid double-firing and scrolling issues
-            if (e.type === 'touchstart') {
-                e.preventDefault();
-            }
-
+        // Ejercicios / sets
+        $('#sessions').addEventListener('click', (e) => {
             const exEl = e.target.closest('.exercise');
             if (!exEl) return;
 
-            const sessionId = e.target.closest('.session')?.dataset.id;
-            if (!sessionId) return;
+            const sessionId = e.target.closest('.session').dataset.id;
             const exId = exEl.dataset.exId;
 
             if (e.target.closest('.js-add-set')) {
@@ -4510,36 +4504,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (e.target.closest('.js-del-set')) {
-                const setEl = e.target.closest('[data-set-id]');
-                if (setEl) {
-                    const setId = setEl.dataset.setId;
-                    deleteSet(sessionId, exId, setId);
-                }
+                const setId = e.target.closest('[data-set-id]').dataset.setId;
+                deleteSet(sessionId, exId, setId);
                 return;
             }
 
-            const restTimerBtn = e.target.closest('.js-rest-timer');
-            if (restTimerBtn) {
-                e.stopPropagation();
+            if (e.target.closest('.js-rest-timer')) {
                 openRestTimer();
                 return;
             }
 
-            const prevWeekBtn = e.target.closest('.js-prev-week-data');
-            if (prevWeekBtn) {
-                e.stopPropagation();
-                togglePrevWeekData(sessionId, exId, prevWeekBtn);
+            if (e.target.closest('.js-prev-week-data')) {
+                const clickedButton = e.target.closest('.js-prev-week-data');
+                if (clickedButton) {
+                    togglePrevWeekData(sessionId, exId, clickedButton);
+                }
                 return;
             }
-        }
-
-        const sessionsEl = $('#sessions');
-        if (sessionsEl) {
-            // Use click for desktop
-            sessionsEl.addEventListener('click', handleSessionInteraction);
-            // Use touchstart for mobile (with passive: false to allow preventDefault)
-            sessionsEl.addEventListener('touchstart', handleSessionInteraction, { passive: false });
-        }
+        });
 
         // Use 'input' event for real-time updates while typing
         // This prevents keyboard from closing on mobile when moving between fields
@@ -4647,16 +4629,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (textarea) textarea.value = '';
         });
 
-        // Rest timer dialog - use event delegation with mobile support
-        function handleTimerInteraction(e) {
-            // Prevent default on touch to avoid double-firing
-            if (e.type === 'touchstart') {
-                e.preventDefault();
-            }
-
+        // Rest timer dialog - use event delegation
+        document.addEventListener('click', (e) => {
             const timerBtn = e.target.closest('.timer-btn');
             if (timerBtn) {
-                e.stopPropagation();
+                e.preventDefault();
                 const minutes = parseInt(timerBtn.dataset.minutes);
                 if (minutes) {
                     startRestTimer(minutes);
@@ -4666,14 +4643,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const timerCancelBtn = e.target.closest('#timerCancel');
             if (timerCancelBtn) {
-                e.stopPropagation();
+                e.preventDefault();
                 stopRestTimer();
                 return;
             }
-        }
-
-        document.addEventListener('click', handleTimerInteraction);
-        document.addEventListener('touchstart', handleTimerInteraction, { passive: false });
+        });
 
         // Close timer dialog when closing
         const restTimerDialog = $('#restTimerDialog');
@@ -5293,4 +5267,3 @@ document.addEventListener('DOMContentLoaded', () => {
         if (recommendedCaloriesDiv) recommendedCaloriesDiv.textContent = goalText;
     }
 });
-

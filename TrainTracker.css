@@ -954,13 +954,6 @@ textarea.input:disabled {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
-    gap: 8px;
-}
-
-.set-header-actions {
-    display: flex;
-    gap: 6px;
-    align-items: center;
 }
 
 .set-number {
@@ -977,13 +970,6 @@ textarea.input:disabled {
     padding: 4px;
     border-radius: 4px;
     font-size: 1.2rem;
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .set-delete:hover {
@@ -2041,7 +2027,6 @@ dialog {
         padding: 10px;
         font-size: 0.88rem;
         border-radius: 8px;
-        touch-action: manipulation;
     }
 
     .set-input-label {
@@ -2051,25 +2036,7 @@ dialog {
     .btn--mobile {
         font-size: 0.74rem;
         padding: 6px 8px;
-        min-height: 44px;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-    }
-
-    /* Ensure buttons in set cards are touch-friendly */
-    .set-header-actions .btn {
-        min-height: 44px;
-        min-width: 44px;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
-    }
-
-    /* Table buttons on mobile should also be touch-friendly */
-    .table td .btn {
-        min-height: 44px;
-        min-width: 44px;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
+        min-height: 38px;
     }
 
     canvas {
@@ -2761,8 +2728,6 @@ dialog {
     padding: 0 10px;
     font-size: 0.9rem;
     min-width: 40px;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .btn--timer:hover {
@@ -2775,17 +2740,6 @@ dialog {
         min-height: 32px;
         padding: 0 8px;
         font-size: 0.85rem;
-    }
-}
-
-@media (max-width: 767px) {
-    .btn--timer,
-    .btn--prev-week {
-        min-height: 44px;
-        min-width: 44px;
-        padding: 0 12px;
-        touch-action: manipulation;
-        -webkit-tap-highlight-color: transparent;
     }
 }
 
@@ -2857,8 +2811,6 @@ dialog {
     padding: 0 10px;
     font-size: 0.9rem;
     min-width: 40px;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
 }
 
 .btn--prev-week:hover {
