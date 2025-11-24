@@ -1571,9 +1571,10 @@ document.addEventListener('DOMContentLoaded', () => {
             restTimerInterval = null;
         }
 
-        // Show selection, hide running timer
+        // Show selection, hide running timer and completed state
         $('#timerSelection').style.display = 'block';
         $('#timerRunning').style.display = 'none';
+        $('#timerCompleted').style.display = 'none';
         $('#timerCancel').style.display = 'none';
 
         restTimerDialog.showModal();
@@ -1584,9 +1585,10 @@ document.addEventListener('DOMContentLoaded', () => {
         restTimerDialog = $('#restTimerDialog');
         if (!restTimerDialog) return;
 
-        // Hide selection, show running timer
+        // Hide selection and completed state, show running timer
         $('#timerSelection').style.display = 'none';
         $('#timerRunning').style.display = 'block';
+        $('#timerCompleted').style.display = 'none';
         $('#timerCancel').style.display = 'block';
 
         // Update display immediately
@@ -1604,12 +1606,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (restTimerSeconds <= 0) {
                 clearInterval(restTimerInterval);
                 restTimerInterval = null;
-                // Close dialog after a brief moment
+                
+                // Hide running timer, show completed state
+                $('#timerRunning').style.display = 'none';
+                $('#timerCompleted').style.display = 'block';
+                $('#timerCancel').style.display = 'none';
+                
+                // Close dialog after 2 seconds
                 setTimeout(() => {
                     if (restTimerDialog) {
                         restTimerDialog.close();
                     }
-                }, 500);
+                }, 2000);
             }
         }, 1000);
     }
@@ -1629,6 +1637,13 @@ document.addEventListener('DOMContentLoaded', () => {
             restTimerInterval = null;
         }
         restTimerSeconds = 0;
+        // Reset all timer states
+        const timerSelection = $('#timerSelection');
+        const timerRunning = $('#timerRunning');
+        const timerCompleted = $('#timerCompleted');
+        if (timerSelection) timerSelection.style.display = 'block';
+        if (timerRunning) timerRunning.style.display = 'none';
+        if (timerCompleted) timerCompleted.style.display = 'none';
         if (restTimerDialog) {
             restTimerDialog.close();
         }
