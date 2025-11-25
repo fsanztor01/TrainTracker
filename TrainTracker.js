@@ -1853,35 +1853,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!app.weeklyGoal) app.weeklyGoal = { target: 3, current: 0 };
 
     /* =================== PR Detection System =================== */
-    function createRepsWeightAchievement(exerciseName, kg, reps) {
-        if (!app.recentAchievements) app.recentAchievements = [];
-        if (!app.achievements) app.achievements = [];
-        
-        const achievementId = `reps_${exerciseName}_${kg}kg_${reps}reps`;
-        const existingIds = new Set([
-            ...(app.recentAchievements || []).map(a => a.id),
-            ...(app.achievements || []).map(a => a.id)
-        ]);
-        
-        if (!existingIds.has(achievementId)) {
-            const achievement = {
-                id: achievementId,
-                type: 'reps-weight',
-                title: `${reps} repeticiones con ${kg} kg en ${exerciseName}`,
-                description: `Nuevo récord de repeticiones con este peso`,
-                date: new Date().toISOString(),
-                exerciseName: exerciseName,
-                kg: kg,
-                reps: reps
-            };
-            
-            app.recentAchievements.unshift(achievement);
-            if (app.recentAchievements.length > 50) {
-                app.recentAchievements = app.recentAchievements.slice(0, 50);
-            }
-            save();
-        }
-    }
 
     function checkAndRecordPRs(sessionId, exId, setId, exerciseName) {
         const session = app.sessions.find(s => s.id === sessionId);
@@ -1957,9 +1928,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentSet.isPR = true;
                 currentSet.prType = 'reps';
             }
-            
-            // Create achievement for "X reps with Y weight"
-            createRepsWeightAchievement(exerciseName, kg, reps);
         }
 
         if (prDetected) {
