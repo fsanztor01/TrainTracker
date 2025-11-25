@@ -2701,6 +2701,39 @@ dialog {
     opacity: 0.7;
 }
 
+.achievement-delete-btn {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 0.875rem;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 4px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease, background 0.2s ease;
+    min-width: 24px;
+    min-height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.achievement-delete-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .achievement-delete-btn {
+    color: #000000;
+    opacity: 0.5;
+}
+
+[data-theme="light"] .achievement-delete-btn:hover {
+    opacity: 0.8;
+    background: rgba(0, 0, 0, 0.05);
+}
+
 [data-theme="dark"] .achievement-date {
     color: #f8fafc;
     opacity: 0.7;

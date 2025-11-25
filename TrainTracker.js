@@ -2494,6 +2494,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function deleteAchievement(achievementId, isRecent = false) {
+        // Remove from both lists to ensure complete deletion
+        app.recentAchievements = (app.recentAchievements || []).filter(a => a.id !== achievementId);
+        app.achievements = (app.achievements || []).filter(a => a.id !== achievementId);
+        save();
+        renderRecentAchievements();
+        renderAllAchievements();
+    }
+
     function renderRecentAchievements() {
         updateAchievementsByTime();
         
@@ -2517,7 +2526,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             <strong>${achievement.title}</strong>
                             <div class="achievement-date">${date}</div>
                         </div>
+                        <button class="achievement-delete-btn" aria-label="Eliminar logro" title="Eliminar logro">✕</button>
                     `;
+            const deleteBtn = badge.querySelector('.achievement-delete-btn');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteAchievement(achievement.id, true);
+            });
             container.appendChild(badge);
         });
     }
@@ -2573,7 +2588,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             <strong>${achievement.title}</strong>
                             <div class="achievement-date">${date}</div>
                         </div>
+                        <button class="achievement-delete-btn" aria-label="Eliminar logro" title="Eliminar logro">✕</button>
                     `;
+            const deleteBtn = badge.querySelector('.achievement-delete-btn');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteAchievement(achievement.id);
+            });
             container.appendChild(badge);
         });
     }
