@@ -20,6 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, ch => HTML_ESCAPE[ch] || ch);
     }
 
+    const TABLE_FRIEND_REQUESTS = 'friend_requests';
+
     const THEME_KEY = 'trainingDiary.theme';
     const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -251,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         routineImportBuffer: null,
         deleteTarget: { type: null, id: null, sessionId: null, exId: null, setId: null, routineId: null, goalId: null },
         routineEditId: null,
-        statsPeriod: 'lastWeek', // Nuevo: período de comparación para estadísticas
+        statsPeriod: '8weeks', // Nuevo: período de comparación para estadísticas
         goals: [], // Sistema de objetivos
         recentAchievements: [], // Logros recientes para celebración
         // Manual save system
@@ -774,7 +776,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =================== Persistencia =================== */
-    function save() {
+    async function save() {
         const payload = {
             sessions: app.sessions,
             routines: app.routines,
@@ -786,32 +788,74 @@ document.addEventListener('DOMContentLoaded', () => {
             achievements: app.achievements || [],
             streak: app.streak || { current: 0, lastDate: null },
             weeklyGoal: app.weeklyGoal || { target: 3, current: 0 },
-            statsPeriod: app.statsPeriod || 'lastWeek', // Guardar el período de estadísticas
+            statsPeriod: app.statsPeriod || '8weeks', // Guardar el período de estadísticas
             goals: app.goals || [],
             recentAchievements: app.recentAchievements || []
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+        // Try to save to Supabase if available, otherwise fallback to localStorage
+        if (typeof supabaseService !== 'undefined') {
+            const isAvailable = await supabaseService.isAvailable();
+            if (isAvailable) {
+                try {
+                    await supabaseService.saveUserData(payload);
+                } catch (error) {
+                    console.warn('Supabase save failed, using localStorage:', error);
+                    // Fallback to localStorage
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+                }
+            } else {
+                // Use localStorage as fallback
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            }
+        } else {
+            // Use localStorage as fallback
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        }
     }
-    function load() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) {
-                app.sessions = [];
-                app.routines = [];
-                app.profile = createDefaultProfile();
-                app.notes = [];
-                app.prs = {};
-                app.onerm = {};
-                app.exerciseNotes = {};
-                app.achievements = [];
-                app.streak = { current: 0, lastDate: null };
-                app.weeklyGoal = { target: 3, current: 0 };
-                app.statsPeriod = 'lastWeek';
+
+    async function load() {
+        let parsed = null;
+
+        // Try to load from Supabase if available
+        if (typeof supabaseService !== 'undefined') {
+            const isAvailable = await supabaseService.isAvailable();
+            if (isAvailable) {
+                try {
+                    parsed = await supabaseService.loadUserData();
+                } catch (error) {
+                    console.warn('Supabase load failed, using localStorage:', error);
+                }
+            }
+        }
+
+        // If Supabase didn't return data, try localStorage
+        if (!parsed) {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) {
+                    initializeDefaultData();
+                    return;
+                }
+                parsed = JSON.parse(raw);
+            } catch (error) {
+                console.error('Error loading from localStorage:', error);
+                initializeDefaultData();
                 return;
             }
-            const parsed = JSON.parse(raw);
+        }
+
+        // Parse and load data
+        try {
             if (Array.isArray(parsed)) {
+                // Legacy format: just sessions array
                 app.sessions = parsed;
+                // Ensure all sessions have the completed field
+                app.sessions.forEach(session => {
+                    if (session.completed === undefined) {
+                        session.completed = false;
+                    }
+                });
                 app.routines = [];
                 app.profile = createDefaultProfile();
                 app.notes = [];
@@ -821,9 +865,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.achievements = [];
                 app.streak = { current: 0, lastDate: null };
                 app.weeklyGoal = { target: 3, current: 0 };
-                app.statsPeriod = 'lastWeek';
+                app.statsPeriod = '8weeks';
             } else {
+                // Modern format: full object
                 app.sessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+                // Ensure all sessions have the completed field
+                app.sessions.forEach(session => {
+                    if (session.completed === undefined) {
+                        session.completed = false;
+                    }
+                });
                 app.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
                 const baseProfile = createDefaultProfile();
                 const storedProfile = (parsed.profile && typeof parsed.profile === 'object') ? parsed.profile : {};
@@ -855,19 +906,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
                 app.recentAchievements = Array.isArray(parsed.recentAchievements) ? parsed.recentAchievements : [];
             }
-        } catch {
-            app.sessions = [];
-            app.routines = [];
-            app.profile = createDefaultProfile();
-            app.notes = [];
-            app.prs = {};
-            app.onerm = {};
-            app.exerciseNotes = {};
-            app.achievements = [];
-            app.streak = { current: 0, lastDate: null };
-            app.weeklyGoal = { target: 3, current: 0 };
-            app.statsPeriod = 'lastWeek';
+
+            // Save after migration to ensure all sessions have completed field
+            let needsSave = false;
+            app.sessions.forEach(session => {
+                if (session.completed === undefined) {
+                    session.completed = false;
+                    needsSave = true;
+                }
+            });
+            if (needsSave) {
+                await save();
+            }
+        } catch (error) {
+            console.error('Error parsing loaded data:', error);
+            initializeDefaultData();
         }
+    }
+
+    function initializeDefaultData() {
+        app.sessions = [];
+        app.routines = [];
+        app.profile = createDefaultProfile();
+        app.notes = [];
+        app.prs = {};
+        app.onerm = {};
+        app.exerciseNotes = {};
+        app.achievements = [];
+        app.streak = { current: 0, lastDate: null };
+        app.weeklyGoal = { target: 3, current: 0 };
+        app.statsPeriod = 'lastWeek';
+        app.goals = [];
+        app.recentAchievements = [];
     }
 
     /* =================== Fechas =================== */
@@ -920,6 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'panel-diary': 'navDiary',
             'panel-stats': 'navStats',
             'panel-import': 'navImport',
+            'panel-social': null,
             'panel-routines': null,
             'panel-profile': null,
             'panel-goals': null
@@ -955,6 +1026,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateNav(panelId);
             if (panelId === 'panel-diary') { renderSessions(); }
             if (panelId === 'panel-stats') { buildStats(); buildChartState(); drawChart(); }
+            if (panelId === 'panel-social') { loadSocialData(); }
             if (panelId === 'panel-import') { initWeekSelector(); }
             if (panelId === 'panel-routines') { renderRoutines(); }
             if (panelId === 'panel-profile') { renderProfile(); }
@@ -1257,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(details);
 
             // Add toggle event listener to trigger animation each time
-            details.addEventListener('toggle', function() {
+            details.addEventListener('toggle', function () {
                 if (this.open) {
                     // Remove animation class first to reset
                     const sessionCard = this.querySelector('.session.card');
@@ -1424,6 +1496,66 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add note button to exercise head
         const headEl = block.querySelector('.exercise__head');
         if (headEl) {
+            // Check if there are 2+ exercises to show reorder arrows
+            // Count from session data instead of DOM to ensure accuracy
+            const exerciseCount = (session.exercises || []).length;
+
+            // Get the buttons container (the div that contains + Set and X buttons)
+            const buttonsContainer = headEl.querySelector('div:last-child');
+
+            // Add reorder buttons if there are 2+ exercises
+            if (exerciseCount >= 2 && buttonsContainer) {
+                // Ensure buttons container is flex for horizontal alignment
+                buttonsContainer.style.display = 'flex';
+                buttonsContainer.style.alignItems = 'center';
+                buttonsContainer.style.gap = '6px';
+
+                const upBtn = document.createElement('button');
+                upBtn.className = 'btn btn--ghost btn--small exercise-reorder-btn exercise-reorder-up';
+                upBtn.innerHTML = ''; // Empty - triangle shown via CSS ::after
+                upBtn.setAttribute('aria-label', 'Mover ejercicio arriba');
+                upBtn.dataset.sessionId = session.id;
+                upBtn.dataset.exId = ex.id;
+                upBtn.dataset.direction = 'up';
+
+                const downBtn = document.createElement('button');
+                downBtn.className = 'btn btn--ghost btn--small exercise-reorder-btn exercise-reorder-down';
+                downBtn.innerHTML = ''; // Empty - triangle shown via CSS ::after
+                downBtn.setAttribute('aria-label', 'Mover ejercicio abajo');
+                downBtn.dataset.sessionId = session.id;
+                downBtn.dataset.exId = ex.id;
+                downBtn.dataset.direction = 'down';
+
+                // Check if this is the first or last exercise
+                const currentIndex = (session.exercises || []).findIndex(e => e.id === ex.id);
+                if (currentIndex === 0) {
+                    upBtn.disabled = true;
+                    upBtn.style.opacity = '0.3';
+                    upBtn.style.cursor = 'not-allowed';
+                }
+                if (currentIndex === exerciseCount - 1) {
+                    downBtn.disabled = true;
+                    downBtn.style.opacity = '0.3';
+                    downBtn.style.cursor = 'not-allowed';
+                }
+
+                upBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    moveExercise(session.id, ex.id, 'up');
+                });
+
+                downBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    moveExercise(session.id, ex.id, 'down');
+                });
+
+                // Insert arrows at the beginning of the buttons container
+                buttonsContainer.insertBefore(upBtn, buttonsContainer.firstChild);
+                buttonsContainer.insertBefore(downBtn, buttonsContainer.firstChild);
+            }
+
             const noteBtn = document.createElement('button');
             noteBtn.className = 'exercise-note-btn';
             noteBtn.type = 'button';
@@ -1639,12 +1771,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (restTimerSeconds <= 0) {
                 clearInterval(restTimerInterval);
                 restTimerInterval = null;
-                
+
                 // Hide running timer, show completed state
                 $('#timerRunning').style.display = 'none';
                 $('#timerCompleted').style.display = 'block';
                 $('#timerCancel').style.display = 'none';
-                
+
                 // Close dialog after 2 seconds
                 setTimeout(() => {
                     if (restTimerDialog) {
@@ -1746,13 +1878,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Find previous week's data
         const prevWeekData = findPrevWeekSetData(exerciseName, setNumber);
-        
+
         if (prevWeekData && (prevWeekData.kg || prevWeekData.reps || prevWeekData.rir)) {
             // Replace input values with previous week data
             kgInput.value = prevWeekData.kg || '';
             repsInput.value = prevWeekData.reps || '';
             rirInput.value = prevWeekData.rir || '';
-            
+
             // Add class to style inputs with theme color
             kgInput.classList.add('showing-prev-week');
             repsInput.classList.add('showing-prev-week');
@@ -1763,7 +1895,7 @@ document.addEventListener('DOMContentLoaded', () => {
             repsInput.value = '';
             rirInput.value = '';
         }
-        
+
         // Update button
         clickedButton.textContent = '👁️‍🗨️';
         clickedButton.classList.add('active');
@@ -1790,7 +1922,7 @@ document.addEventListener('DOMContentLoaded', () => {
         repsInput.value = original.reps || '';
         rirInput.value = original.rir || '';
         prevWeekOriginalValues.delete(storageKey);
-        
+
         // Remove styling classes
         kgInput.classList.remove('showing-prev-week');
         repsInput.classList.remove('showing-prev-week');
@@ -1822,13 +1954,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Find exercise with same name (case-insensitive comparison)
         for (const session of prevWeekSessions) {
             if (!session.exercises || !Array.isArray(session.exercises)) continue;
-            
+
             const exercise = session.exercises.find(e => e.name && e.name.trim().toLowerCase() === exerciseName.trim().toLowerCase());
             if (!exercise) continue;
 
             // Find set with same number
             if (!exercise.sets || !Array.isArray(exercise.sets)) continue;
-            
+
             const set = exercise.sets.find(s => s.setNumber === setNumber);
             if (set) {
                 return {
@@ -1993,7 +2125,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const targetReps = parseFloat(goal.targetReps) || 0;
             const currentReps = current;
             const repsDiff = targetReps - currentReps;
-            
+
             if (repsDiff <= 10) {
                 // Small difference: use fixed increments
                 const increment = Math.max(1, Math.ceil(repsDiff / 4));
@@ -2268,7 +2400,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderGoals();
         renderRecentAchievements();
         renderAllAchievements();
-        
+
         // Trigger celebration animation
         setTimeout(() => {
             createConfetti();
@@ -2308,7 +2440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderGoals();
         renderRecentAchievements();
         renderAllAchievements();
-        
+
         // Trigger celebration animation for milestone
         setTimeout(() => {
             createConfetti();
@@ -2397,7 +2529,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.className = `goal-item ${goal.completed ? 'completed' : ''}`;
 
             const progressPercent = Math.min(100, goal.progress || 0);
-            
+
             // Format goal display based on type
             let goalDisplay = '';
             if (goal.type === 'repsWeight' && goal.targetKg && goal.targetReps) {
@@ -2427,19 +2559,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${goal.milestones && goal.milestones.length > 0 ? `
                             <div class="goal-milestones">
                                 ${goal.milestones.map(m => {
-                                    let milestoneText = m.value;
-                                    if (goal.type === 'repsWeight') {
-                                        milestoneText = `${Math.round(m.value)} REPS`;
-                                    } else if (goal.type === 'weight') {
-                                        milestoneText = `${m.value} KG`;
-                                    }
-                                    return `
+                let milestoneText = m.value;
+                if (goal.type === 'repsWeight') {
+                    milestoneText = `${Math.round(m.value)} REPS`;
+                } else if (goal.type === 'weight') {
+                    milestoneText = `${m.value} KG`;
+                }
+                return `
                                     <div class="milestone-item ${m.completed ? 'completed' : ''}">
                                         <div class="milestone-check">${m.completed ? '✓' : ''}</div>
                                         <span>${milestoneText}</span>
                                     </div>
                                 `;
-                                }).join('')}
+            }).join('')}
                             </div>
                         ` : ''}
                     `;
@@ -2459,25 +2591,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateAchievementsByTime() {
         if (!app.recentAchievements) app.recentAchievements = [];
         if (!app.achievements) app.achievements = [];
-        
+
         const twoWeeksAgo = new Date();
         twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
         twoWeeksAgo.setHours(0, 0, 0, 0);
-        
+
         const recent = [];
         const toMove = [];
-        
+
         app.recentAchievements.forEach(achievement => {
             const achievementDate = new Date(achievement.date);
             achievementDate.setHours(0, 0, 0, 0);
-            
+
             if (achievementDate >= twoWeeksAgo) {
                 recent.push(achievement);
             } else {
                 toMove.push(achievement);
             }
         });
-        
+
         // Move old achievements to all achievements
         if (toMove.length > 0) {
             toMove.forEach(achievement => {
@@ -2487,7 +2619,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     app.achievements.push(achievement);
                 }
             });
-            
+
             app.achievements.sort((a, b) => new Date(b.date) - new Date(a.date));
             app.recentAchievements = recent;
             save();
@@ -2505,7 +2637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderRecentAchievements() {
         updateAchievementsByTime();
-        
+
         const container = $('#recentAchievements');
         if (!container) return;
 
@@ -2544,7 +2676,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Combine recent and all achievements, removing duplicates
         const allAchievements = [];
         const seenIds = new Set();
-        
+
         // Add all achievements first
         (app.achievements || []).forEach(ach => {
             if (!seenIds.has(ach.id)) {
@@ -2552,7 +2684,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 seenIds.add(ach.id);
             }
         });
-        
+
         // Add recent achievements that are older than 2 weeks (should already be moved, but just in case)
         const twoWeeksAgo = new Date();
         twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
@@ -2563,7 +2695,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 seenIds.add(ach.id);
             }
         });
-        
+
         // Sort by date descending
         allAchievements.sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -2576,10 +2708,10 @@ document.addEventListener('DOMContentLoaded', () => {
         allAchievements.forEach(achievement => {
             const badge = document.createElement('div');
             badge.className = `achievement-badge ${achievement.type === 'milestone' ? 'achievement-milestone' : ''}`;
-            const date = new Date(achievement.date).toLocaleDateString('es-ES', { 
-                year: 'numeric', 
-                month: 'short', 
-                day: 'numeric' 
+            const date = new Date(achievement.date).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
             });
             const icon = achievement.type === 'goal' ? '🎯' : achievement.type === 'milestone' ? '🏆' : achievement.type === 'reps-weight' ? '💪' : '🏆';
             badge.innerHTML = `
@@ -2996,79 +3128,69 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Find the session
+        const session = app.sessions.find(s => s.id === sessionId);
+        if (!session) return;
+
         // Find the session card element
         const sessionCard = $(`.session[data-id="${sessionId}"]`);
         if (!sessionCard) return;
 
         // Add celebration class to the card
         sessionCard.classList.add('fiesta-celebration');
-        
+
         // Remove class after animation completes
         setTimeout(() => {
             sessionCard.classList.remove('fiesta-celebration');
         }, 600);
 
-        // Create confetti effect
-        createConfetti();
+        // Create level-up notification with session name
+        createLevelUpNotification(session.name);
     }
 
-    function createConfetti() {
+    function createLevelUpNotification(sessionName) {
         // Check if user prefers reduced motion
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             return;
         }
 
-        // Remove existing confetti container if any
-        const existing = $('#confettiContainer');
+        // Remove existing notification if any
+        const existing = $('#levelUpNotification');
         if (existing) {
             existing.remove();
         }
 
-        // Create confetti container
-        const container = document.createElement('div');
-        container.id = 'confettiContainer';
-        container.className = 'confetti-container';
-        document.body.appendChild(container);
+        // Create notification container
+        const notification = document.createElement('div');
+        notification.id = 'levelUpNotification';
+        notification.className = 'level-up-notification';
 
-        // Create confetti pieces
-        const colors = [
-            'var(--primary)',
-            'var(--accent)',
-            'var(--progress-green)',
-            'var(--warn)',
-            '#ff6b9d',
-            '#a855f7',
-            '#ec4899'
-        ];
+        // Create content
+        notification.innerHTML = `
+            <div class="level-up-content">
+                <div class="level-up-icon">✓</div>
+                <div class="level-up-text">
+                    <div class="level-up-title">${escapeHtml(sessionName)}</div>
+                    <div class="level-up-subtitle">COMPLETADO</div>
+                </div>
+            </div>
+        `;
 
-        const confettiCount = 30;
-        for (let i = 0; i < confettiCount; i++) {
-            const piece = document.createElement('div');
-            piece.className = 'confetti-piece';
-            
-            // Random position at top
-            const startX = Math.random() * 100;
-            const delay = Math.random() * 0.5;
-            const duration = 1.5 + Math.random() * 1;
-            
-            piece.style.left = `${startX}%`;
-            piece.style.background = colors[Math.floor(Math.random() * colors.length)];
-            piece.style.animationDelay = `${delay}s`;
-            piece.style.animationDuration = `${duration}s`;
-            
-            // Random size
-            const size = 6 + Math.random() * 6;
-            piece.style.width = `${size}px`;
-            piece.style.height = `${size}px`;
-            
-            container.appendChild(piece);
-        }
+        document.body.appendChild(notification);
 
-        // Remove container after animation
+        // Trigger animation
         setTimeout(() => {
-            if (container.parentNode) {
-                container.remove();
-            }
+            notification.classList.add('show');
+        }, 10);
+
+        // Remove notification after animation
+        setTimeout(() => {
+            notification.classList.remove('show');
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 500);
         }, 3000);
     }
 
@@ -3088,7 +3210,7 @@ document.addEventListener('DOMContentLoaded', () => {
             save();
         }
         refresh();
-        
+
         // Trigger celebration animation if session was just completed (not uncompleted)
         if (s.completed && !wasCompleted) {
             // Small delay to ensure DOM is updated
@@ -3118,6 +3240,26 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show confirmation dialog
         app.deleteTarget = { type: 'exercise', sessionId, exId };
         showConfirmDialog(`¿Estás seguro de que quieres eliminar el ejercicio "${ex.name}"? Esta acción no se puede deshacer.`);
+    }
+
+    function moveExercise(sessionId, exId, direction) {
+        const s = app.sessions.find(x => x.id === sessionId);
+        if (!s || !s.exercises) return;
+
+        const exIndex = s.exercises.findIndex(e => e.id === exId);
+        if (exIndex === -1) return;
+
+        const newIndex = direction === 'up' ? exIndex - 1 : exIndex + 1;
+        if (newIndex < 0 || newIndex >= s.exercises.length) return;
+
+        // Swap exercises
+        [s.exercises[exIndex], s.exercises[newIndex]] = [s.exercises[newIndex], s.exercises[exIndex]];
+
+        // Save changes
+        save();
+
+        // Refresh with smooth animation
+        refresh({ preserveTab: true });
     }
 
     function updateExerciseName(sessionId, exId, newName, oldName = null) {
@@ -3414,7 +3556,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             exerciseFilter = app.chartState.exercise || 'all';
         }
-        const period = sharedPeriod ? parseInt(sharedPeriod.value) : (app.chartState.period || 4);
+        const period = sharedPeriod ? parseInt(sharedPeriod.value) : (app.chartState.period || 8);
 
         // Get exercises to show (filtered by exerciseFilter)
         const allExercises = new Set();
@@ -3943,11 +4085,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (sharedPeriod) {
-            sharedPeriod.value = String(app.chartState.period || 4);
+            sharedPeriod.value = String(app.chartState.period || 8);
             sharedPeriod.onchange = () => {
                 app.chartState.period = +sharedPeriod.value;
                 drawChart();
                 buildStats();
+            };
+        }
+
+        const chartTypeSelect = $('#chartType');
+        if (chartTypeSelect) {
+            chartTypeSelect.onchange = () => {
+                drawChart();
             };
         }
 
@@ -4017,24 +4166,45 @@ document.addEventListener('DOMContentLoaded', () => {
     function drawChart() {
         const canvas = $('#progressChart'); if (!canvas) return;
         const ctx = canvas.getContext('2d'); if (!ctx) return;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const barColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || 'rgba(34,211,238,0.9)';
-        const lineColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || 'rgba(16,185,129,0.95)';
-        const gridColor = getComputedStyle(document.body).getPropertyValue('--muted').trim() || '#94a3b8';
-        const textColor = getComputedStyle(document.body).getPropertyValue('--heading-strong').trim() || '#fff';
+        // Ensure canvas dimensions match display size for sharpness
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const rect = canvas.getBoundingClientRect();
 
-        const padding = { l: 36, r: 14, t: 12, b: 30 };
-        const w = canvas.clientWidth || canvas.width;
-        const h = (window.innerWidth < 420 ? 230 : 250);
+        // Only resize if dimensions changed to avoid flickering
+        if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+            ctx.scale(dpr, dpr);
+        } else {
+            // Reset transform if not resizing, but ensure scale is correct
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        // Clear with correct dimensions
+        ctx.clearRect(0, 0, rect.width, rect.height);
+
+        const chartTypeSelect = $('#chartType');
+        const chartType = chartTypeSelect ? chartTypeSelect.value : 'bar';
+
+        // Get theme colors
+        const style = getComputedStyle(document.documentElement);
+        const barColor = style.getPropertyValue('--primary').trim() || '#3b82f6';
+        const lineColor = style.getPropertyValue('--accent').trim() || '#10b981';
+        const gridColor = document.documentElement.getAttribute('data-theme') === 'light' ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)';
+        const textColor = style.getPropertyValue('--text').trim() || '#94a3b8';
+
+        const padding = { l: 50, r: 20, t: 30, b: 40 };
+        const w = rect.width;
+        const h = rect.height;
 
         // Use shared filters
         const sharedMetric = $('#sharedMetric');
         const sharedExercise = $('#sharedExercise');
         const sharedPeriod = $('#sharedPeriod');
 
-        const period = sharedPeriod ? parseInt(sharedPeriod.value) : (app.chartState.period || 4);
-        // For input field, check value or use 'all' if empty
+        const period = sharedPeriod ? parseInt(sharedPeriod.value) : (app.chartState.period || 8);
+
         let filter = 'all';
         if (sharedExercise) {
             const exerciseValue = sharedExercise.value.trim();
@@ -4042,67 +4212,229 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             filter = app.chartState.exercise || 'all';
         }
+
         const metric = sharedMetric ? sharedMetric.value : (app.chartState.metric || 'volume');
         const { weeks, values } = weeklyData(period, filter, metric);
 
-        const trend = values.map((_, i, arr) => {
-            const a = Math.max(0, i - 2), b = i; const slice = arr.slice(a, b + 1);
-            const sum = slice.reduce((s, v) => s + v, 0); return +(sum / slice.length).toFixed(1);
-        });
+        if (chartType === 'pie') {
+            drawPieChart(ctx, canvas, weeks, values, metric, barColor, textColor, gridColor);
+        } else {
+            drawBarChart(ctx, canvas, weeks, values, metric, barColor, lineColor, gridColor, textColor, padding, w, h);
+        }
+    }
 
-        const vmax = Math.max(1, ...values);
+    function drawBarChart(ctx, canvas, weeks, values, metric, barColor, lineColor, gridColor, textColor, padding, w, h) {
+        const vmax = Math.max(1, ...values) * 1.1; // Add 10% headroom
         const cw = w - padding.l - padding.r;
         const ch = h - padding.t - padding.b;
-        const barW = cw / weeks.length * 0.56;
+        const barW = Math.min(40, (cw / weeks.length) * 0.6); // Cap bar width
         const step = cw / weeks.length;
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
 
-        // Ejes
-        ctx.strokeStyle = gridColor; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(padding.l, padding.t); ctx.lineTo(padding.l, padding.t + ch); ctx.lineTo(padding.l + cw, padding.t + ch); ctx.stroke();
+        // Background grid lines
+        ctx.strokeStyle = gridColor;
+        ctx.lineWidth = 1;
+        const ticks = 5;
 
-        // Ticks Y
-        ctx.fillStyle = textColor; ctx.font = '12px Poppins, system-ui, sans-serif';
-        const ticks = 4;
-        for (let i = 1; i <= ticks; i++) {
-            const val = Math.round(vmax * (i / ticks));
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = textColor;
+        ctx.font = '11px Inter, system-ui, sans-serif';
+
+        for (let i = 0; i <= ticks; i++) {
+            const val = vmax * (i / ticks);
             const y = padding.t + ch - (val / vmax) * ch;
-            ctx.strokeStyle = gridColor; ctx.beginPath(); ctx.moveTo(padding.l, y); ctx.lineTo(padding.l + cw, y); ctx.stroke();
-            ctx.fillStyle = textColor; ctx.fillText(val.toLocaleString(), 6, y + 4);
+
+            // Grid line
+            ctx.beginPath();
+            ctx.moveTo(padding.l, y);
+            ctx.lineTo(padding.l + cw, y);
+            ctx.stroke();
+
+            // Y-axis label
+            let label = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : Math.round(val).toLocaleString();
+            if (metric === 'rir') label = val.toFixed(1);
+            ctx.fillText(label, padding.l - 10, y);
         }
 
-        // Barras + etiquetas
-        ctx.textAlign = 'center';
+        // Bars
         for (let i = 0; i < weeks.length; i++) {
             const x = padding.l + i * step + (step - barW) / 2;
-            const y = padding.t + ch - (values[i] / vmax) * ch;
-            const hBar = (values[i] / vmax) * ch;
-            ctx.fillStyle = barColor;
-            ctx.fillRect(x, y, barW, Math.max(0, hBar));
-            ctx.fillStyle = textColor;
-            ctx.fillText(weeks[i], x + barW / 2, padding.t + ch + 14);
-            const valY = y - 6;
-            if (valY > padding.t + 6) {
-                let label = values[i].toLocaleString();
-                if (metric === 'rir') label = values[i].toFixed(1);
-                ctx.fillText(label, x + barW / 2, valY);
+            const val = values[i];
+            const barH = (val / vmax) * ch;
+            const y = padding.t + ch - barH;
+
+            if (barH > 0) {
+                // Gradient fill
+                const gradient = ctx.createLinearGradient(x, y, x, y + barH);
+                gradient.addColorStop(0, barColor);
+                gradient.addColorStop(1, adjustColorOpacity(barColor, 0.6));
+
+                ctx.fillStyle = gradient;
+
+                // Rounded top corners
+                const radius = Math.min(6, barW / 2);
+                ctx.beginPath();
+                ctx.moveTo(x, y + barH);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.lineTo(x + barW - radius, y);
+                ctx.quadraticCurveTo(x + barW, y, x + barW, y + radius);
+                ctx.lineTo(x + barW, y + barH);
+                ctx.closePath();
+                ctx.fill();
+
+                // Value label on hover or always if space permits (simplified to always for now)
+                if (weeks.length <= 8) {
+                    ctx.fillStyle = textColor;
+                    ctx.textAlign = 'center';
+                    ctx.font = 'bold 10px Inter, system-ui, sans-serif';
+                    let valLabel = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : Math.round(val).toLocaleString();
+                    if (metric === 'rir') valLabel = val.toFixed(1);
+                    ctx.fillText(valLabel, x + barW / 2, y - 8);
+                }
             }
+
+            // X-axis label
+            ctx.fillStyle = textColor;
+            ctx.textAlign = 'center';
+            ctx.font = '10px Inter, system-ui, sans-serif';
+            // Simplify week label if too many
+            let weekLabel = weeks[i].replace('Sem ', 'S');
+            if (weeks.length > 12 && i % 2 !== 0) weekLabel = ''; // Skip every other label if crowded
+            ctx.fillText(weekLabel, x + barW / 2, padding.t + ch + 15);
+        }
+    }
+
+    function adjustColorOpacity(color, opacity) {
+        // Simple hex to rgba converter
+        if (color.startsWith('#')) {
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+        }
+        return color;
+    }
+
+    function drawPieChart(ctx, canvas, weeks, values, metric, barColor, textColor, gridColor) {
+        const rect = canvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+        const centerX = w * 0.35; // Shift left to make room for legend
+        const centerY = h / 2;
+        const radius = Math.min(w, h) * 0.35;
+        const total = values.reduce((sum, val) => sum + val, 0);
+
+        if (total === 0) {
+            ctx.fillStyle = textColor;
+            ctx.font = '14px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('No hay datos disponibles', w / 2, centerY);
+            return;
         }
 
-        // Línea tendencia
-        ctx.strokeStyle = lineColor; ctx.lineWidth = 2; ctx.beginPath();
-        for (let i = 0; i < trend.length; i++) {
-            const x = padding.l + i * step + step / 2;
-            const y = padding.t + ch - (trend[i] / vmax) * ch;
-            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        // Puntos
-        ctx.fillStyle = lineColor;
-        for (let i = 0; i < trend.length; i++) {
-            const x = padding.l + i * step + step / 2;
-            const y = padding.t + ch - (trend[i] / vmax) * ch;
-            ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill();
-        }
+        let currentAngle = -Math.PI / 2;
+
+        // Premium palette
+        const colors = [
+            barColor,
+            '#10b981', // Emerald
+            '#f59e0b', // Amber
+            '#8b5cf6', // Violet
+            '#ec4899', // Pink
+            '#06b6d4', // Cyan
+            '#ef4444', // Red
+            '#6366f1', // Indigo
+            '#84cc16', // Lime
+            '#14b8a6'  // Teal
+        ];
+
+        // Draw slices
+        values.forEach((val, i) => {
+            if (val === 0) return;
+
+            const sliceAngle = (val / total) * 2 * Math.PI;
+            const color = colors[i % colors.length];
+
+            // Add gap
+            const gap = 0.02;
+            const start = currentAngle + gap;
+            const end = currentAngle + sliceAngle - gap;
+
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, start, end);
+            ctx.closePath();
+
+            // Gradient for depth
+            const gradient = ctx.createRadialGradient(centerX, centerY, radius * 0.4, centerX, centerY, radius);
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(1, adjustColorOpacity(color, 0.8));
+
+            ctx.fillStyle = gradient;
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = isLight ? '#ffffff' : '#1e1e1e';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            currentAngle += sliceAngle;
+        });
+
+        // Draw Legend
+        const legendX = w * 0.65;
+        const legendY = 40;
+        const lineHeight = 20;
+
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.font = '11px Inter, system-ui, sans-serif';
+
+        values.forEach((val, i) => {
+            if (val === 0) return;
+
+            const y = legendY + i * lineHeight;
+            // Don't draw if out of bounds
+            if (y > h - 20) return;
+
+            const color = colors[i % colors.length];
+            const percentage = ((val / total) * 100).toFixed(1) + '%';
+            const label = weeks[i];
+
+            // Color dot
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(legendX, y, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = textColor;
+            let valText = val >= 1000 ? (val / 1000).toFixed(1) + 'k' : Math.round(val).toLocaleString();
+            if (metric === 'rir') valText = val.toFixed(1);
+
+            ctx.fillText(`${label}: ${valText} (${percentage})`, legendX + 12, y);
+        });
+
+        // Draw total in center (Donut style)
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, radius * 0.4, 0, Math.PI * 2);
+        ctx.fillStyle = isLight ? '#ffffff' : '#1e1e1e'; // Match background
+        ctx.fill();
+
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 12px Inter, system-ui, sans-serif';
+        ctx.fillText('Total', centerX, centerY - 8);
+
+        let totalText = total >= 1000 ? (total / 1000).toFixed(1) + 'k' : Math.round(total).toLocaleString();
+        if (metric === 'rir') totalText = (total / values.filter(v => v > 0).length).toFixed(1); // Avg for RIR
+
+        ctx.font = '11px Inter, system-ui, sans-serif';
+        ctx.fillText(totalText, centerX, centerY + 8);
     }
 
     /* =================== Import/Export =================== */
@@ -5156,14 +5488,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const targetField = $('#goalTargetField');
                 const targetLabel = $('#goalTargetLabel');
                 const repsTargetField = $('#goalRepsTargetField');
-                
+
                 // Show/hide exercise field
                 if (type === 'exercise' || type === 'weight' || type === 'repsWeight') {
                     if (exerciseField) exerciseField.style.display = 'block';
                 } else {
                     if (exerciseField) exerciseField.style.display = 'none';
                 }
-                
+
                 // Handle repsWeight type - show two inputs
                 if (type === 'repsWeight') {
                     if (targetLabel) targetLabel.textContent = 'KG Objetivo';
@@ -5202,7 +5534,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     toast('Escribe el nombre del objetivo', 'warn');
                     return;
                 }
-                
+
                 if (type === 'repsWeight') {
                     if (!target || parseFloat(target) <= 0) {
                         toast('El KG objetivo debe ser mayor que 0', 'warn');
@@ -5266,15 +5598,295 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /* =================== Authentication =================== */
+    let authSubscription = null;
+
+    // Validate email domain
+    function validateEmail(email) {
+        const allowedDomains = ['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com'];
+        const emailDomain = email.split('@')[1]?.toLowerCase();
+        return allowedDomains.includes(emailDomain);
+    }
+
+    async function initAuth() {
+        if (typeof supabaseService === 'undefined') {
+            // Supabase not configured, show error
+            showAuthScreen();
+            const errorDiv = $('#authError');
+            if (errorDiv) {
+                errorDiv.textContent = 'Supabase no está configurado. Por favor configura las credenciales.';
+                errorDiv.style.display = 'block';
+            }
+            return false;
+        }
+
+        // Check for existing session
+        const session = await supabaseService.getSession();
+        if (session) {
+            // User is authenticated
+            hideAuthScreen();
+            showMainApp();
+            setupAuthUI(true);
+            await setupRealtimeSync();
+            return true;
+        } else {
+            // Show auth screen
+            showAuthScreen();
+            return false;
+        }
+    }
+
+    function showAuthScreen() {
+        const authScreen = $('#authScreen');
+        const mainApp = $('#mainApp');
+        if (authScreen) authScreen.style.display = 'flex';
+        if (mainApp) mainApp.style.display = 'none';
+    }
+
+    function hideAuthScreen() {
+        const authScreen = $('#authScreen');
+        if (authScreen) authScreen.style.display = 'none';
+    }
+
+    function showMainApp() {
+        const mainApp = $('#mainApp');
+        if (mainApp) mainApp.style.display = 'block';
+    }
+
+    function setupAuthUI(isAuthenticated) {
+        const authBtn = $('#authBtn');
+        if (authBtn) {
+            if (isAuthenticated) {
+                authBtn.textContent = 'Cerrar Sesión';
+                authBtn.onclick = handleSignOut;
+                authBtn.style.display = 'block';
+            } else {
+                authBtn.style.display = 'none';
+            }
+        }
+    }
+
+    function updateAuthForm(tab) {
+        const submitBtn = $('#authSubmit');
+        const signupFields = $('#signupFields');
+        const firstNameInput = $('#authFirstName');
+        const lastNameInput = $('#authLastName');
+
+        if (tab === 'signin') {
+            if (submitBtn) submitBtn.textContent = 'Iniciar Sesión';
+            if (signupFields) signupFields.style.display = 'none';
+            if (firstNameInput) firstNameInput.removeAttribute('required');
+            if (lastNameInput) lastNameInput.removeAttribute('required');
+        } else {
+            if (submitBtn) submitBtn.textContent = 'Registrarse';
+            if (signupFields) signupFields.style.display = 'block';
+            if (firstNameInput) firstNameInput.setAttribute('required', 'required');
+            if (lastNameInput) lastNameInput.setAttribute('required', 'required');
+        }
+    }
+
+    async function handleAuth(e) {
+        if (e) e.preventDefault();
+
+        if (typeof supabaseService === 'undefined') {
+            const errorDiv = $('#authError');
+            if (errorDiv) {
+                errorDiv.textContent = 'Supabase no está configurado';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        const email = $('#authEmail')?.value.trim();
+        const password = $('#authPassword')?.value;
+        const firstName = $('#authFirstName')?.value.trim();
+        const lastName = $('#authLastName')?.value.trim();
+        const errorDiv = $('#authError');
+        const activeTab = $('.auth-tab-btn.active')?.dataset.tab || 'signin';
+
+        // Validate email domain
+        if (email && !validateEmail(email)) {
+            if (errorDiv) {
+                errorDiv.textContent = 'Solo se permiten correos de: @gmail.com, @outlook.com, @hotmail.com, @yahoo.com';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        // Validate required fields
+        if (!email || !password) {
+            if (errorDiv) {
+                errorDiv.textContent = 'Por favor completa todos los campos';
+                errorDiv.style.display = 'block';
+            }
+            return;
+        }
+
+        // Validate signup fields
+        if (activeTab === 'signup') {
+            if (!firstName || !lastName) {
+                if (errorDiv) {
+                    errorDiv.textContent = 'Por favor completa nombre y apellidos';
+                    errorDiv.style.display = 'block';
+                }
+                return;
+            }
+        }
+
+        try {
+            let result;
+            if (activeTab === 'signin') {
+                result = await supabaseService.signIn(email, password);
+            } else {
+                result = await supabaseService.signUp(email, password, {
+                    firstName: firstName,
+                    lastName: lastName
+                });
+                if (result) {
+                    // Save user profile data
+                    if (result.user) {
+                        app.profile.firstName = firstName;
+                        app.profile.lastName = lastName;
+                        app.profile.email = email;
+                        await save();
+                    }
+                }
+            }
+
+            if (result) {
+                // Load user profile if signing in
+                if (activeTab === 'signin') {
+                    await load();
+                    // Try to get user metadata from Supabase
+                    const user = await supabaseService.getCurrentUser();
+                    if (user && user.user_metadata) {
+                        if (user.user_metadata.firstName) app.profile.firstName = user.user_metadata.firstName;
+                        if (user.user_metadata.lastName) app.profile.lastName = user.user_metadata.lastName;
+                        if (user.email) app.profile.email = user.email;
+                        await save();
+                    }
+                }
+
+                hideAuthScreen();
+                showMainApp();
+                setupAuthUI(true);
+                await setupRealtimeSync();
+                // Reload data from Supabase
+                await load();
+                // Initialize app if not already done
+                bindEvents();
+                render();
+                updateStreak();
+                updateWeeklyGoal();
+                checkAchievements();
+                toast('Sesión iniciada correctamente', 'ok');
+            }
+        } catch (error) {
+            console.error('Auth error:', error);
+            if (errorDiv) {
+                errorDiv.textContent = error.message || 'Error al autenticarse';
+                errorDiv.style.display = 'block';
+            }
+        }
+    }
+
+    async function handleSignOut() {
+        if (typeof supabaseService === 'undefined') return;
+
+        try {
+            await supabaseService.signOut();
+            if (authSubscription) {
+                authSubscription.unsubscribe();
+                authSubscription = null;
+            }
+            setupAuthUI(false);
+            // Show auth screen
+            showAuthScreen();
+            // Reset form
+            const authForm = $('#authForm');
+            if (authForm) authForm.reset();
+            const errorDiv = $('#authError');
+            if (errorDiv) errorDiv.style.display = 'none';
+            toast('Sesión cerrada', 'ok');
+        } catch (error) {
+            console.error('Sign out error:', error);
+            toast('Error al cerrar sesión', 'warn');
+        }
+    }
+
+    async function setupRealtimeSync() {
+        if (typeof supabaseService === 'undefined') return;
+        const isAvailable = await supabaseService.isAvailable();
+        if (!isAvailable) return;
+
+        // Subscribe to real-time changes
+        authSubscription = await supabaseService.subscribeToChanges(async (newData) => {
+            // Data changed on another device, reload
+            await load();
+            render();
+            toast('Datos actualizados', 'ok');
+        });
+    }
+
+    // Bind auth events
+    function bindAuthEvents() {
+        // Auth tabs
+        const authTabs = $$('.auth-tab-btn');
+        authTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                authTabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                updateAuthForm(tab.dataset.tab);
+                // Clear error message when switching tabs
+                const errorDiv = $('#authError');
+                if (errorDiv) errorDiv.style.display = 'none';
+            });
+        });
+
+        // Auth form
+        const authForm = $('#authForm');
+        if (authForm) {
+            authForm.addEventListener('submit', handleAuth);
+        }
+
+        // Real-time email validation
+        const emailInput = $('#authEmail');
+        if (emailInput) {
+            emailInput.addEventListener('blur', () => {
+                const email = emailInput.value.trim();
+                const errorDiv = $('#authError');
+                if (email && !validateEmail(email)) {
+                    if (errorDiv) {
+                        errorDiv.textContent = 'Solo se permiten correos de: @gmail.com, @outlook.com, @hotmail.com, @yahoo.com';
+                        errorDiv.style.display = 'block';
+                    }
+                } else if (errorDiv && errorDiv.textContent.includes('correos de')) {
+                    errorDiv.style.display = 'none';
+                }
+            });
+        }
+    }
+
     /* =================== Init =================== */
-    (function init() {
-        load();
-        bindEvents();
-        render();
-        // Initialize competitive mode on load
-        updateStreak();
-        updateWeeklyGoal();
-        checkAchievements();
+    (async function init() {
+        // Initialize authentication first
+        const isAuthenticated = await initAuth();
+        bindAuthEvents();
+
+        // Only load app data if authenticated
+        if (isAuthenticated) {
+            // Load data
+            await load();
+            bindEvents();
+            render();
+            // Initialize competitive mode on load
+            updateStreak();
+            updateWeeklyGoal();
+            checkAchievements();
+        } else {
+            // Just bind events for auth screen
+            // Don't load app data until authenticated
+        }
     })();
 
     /* =================== Profile Handlers =================== */
@@ -5691,4 +6303,336 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tdeeValue) tdeeValue.textContent = tdee;
         if (recommendedCaloriesDiv) recommendedCaloriesDiv.textContent = goalText;
     }
+
+    /* =================== Social Feature =================== */
+    async function loadSocialData() {
+        if (!window.supabaseCreateClient) return;
+        console.log('Loading social data, table:', TABLE_FRIEND_REQUESTS);
+
+        const user = await supabaseService.getCurrentUser();
+        if (!user) {
+            toast('Debes iniciar sesión para usar funciones sociales', 'warn');
+            return;
+        }
+
+        // 1. Load my profile (use local state for immediate sync)
+        const firstName = app.profile.firstName || '';
+        const lastName = app.profile.lastName || '';
+        const fullName = (firstName + ' ' + lastName).trim() || 'Usuario';
+
+        const socialName = $('#socialName');
+        const socialEmail = $('#socialEmail');
+        const socialAvatar = $('#socialAvatar');
+
+        if (socialName) socialName.textContent = fullName;
+        if (socialEmail) socialEmail.textContent = app.profile.email || user.email;
+        if (socialAvatar) socialAvatar.src = getCurrentAvatar();
+
+
+        // 2. Load Pending Requests
+        const { data: requests } = await supabase
+            .from(TABLE_FRIEND_REQUESTS)
+            .select('*, sender:profiles!sender_id(*)')
+            .eq('receiver_id', user.id)
+            .eq('status', 'pending');
+
+        const reqList = $('#pendingRequestsList');
+        reqList.innerHTML = '';
+        if (requests && requests.length > 0) {
+            requests.forEach(req => {
+                const div = document.createElement('div');
+                div.className = 'routine-created__item';
+                div.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center">
+                        <div style="display:flex; align-items:center; gap:10px">
+                            <img src="${req.sender.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.sender.email}`}" style="width:40px; height:40px; border-radius:50%">
+                            <div>
+                                <div style="font-weight:600">${req.sender.first_name} ${req.sender.last_name}</div>
+                                <div style="font-size:0.8rem; color:var(--muted)">${req.sender.email}</div>
+                            </div>
+                        </div>
+                        <button class="btn btn--small js-accept-request" data-id="${req.id}">Aceptar</button>
+                    </div>
+                `;
+                reqList.appendChild(div);
+            });
+        } else {
+            reqList.innerHTML = '<div class="routine-empty">No tienes solicitudes pendientes.</div>';
+        }
+
+        // 3. Load Friends
+        // Simplified: fetch requests where status=accepted and I am sender OR receiver
+        const { data: friends1 } = await supabase
+            .from(TABLE_FRIEND_REQUESTS)
+            .select('*, friend:profiles!receiver_id(*)')
+            .eq('sender_id', user.id)
+            .eq('status', 'accepted');
+
+        const { data: friends2 } = await supabase
+            .from(TABLE_FRIEND_REQUESTS)
+            .select('*, friend:profiles!sender_id(*)')
+            .eq('receiver_id', user.id)
+            .eq('status', 'accepted');
+
+        const allFriends = [...(friends1 || []).map(r => r.friend), ...(friends2 || []).map(r => r.friend)];
+
+        const friendsList = $('#friendsList');
+        friendsList.innerHTML = '';
+        if (allFriends.length > 0) {
+            allFriends.forEach(f => {
+                const div = document.createElement('div');
+                div.className = 'routine-created__item';
+                div.style.cursor = 'pointer';
+                div.onclick = () => viewFriendStats(f.id);
+                div.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:12px">
+                        <img src="${f.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.email}`}" style="width:40px; height:40px; border-radius:50%">
+                        <div>
+                            <div style="font-weight:600">${f.first_name} ${f.last_name}</div>
+                            <div style="font-size:0.8rem; color:var(--muted)">Ver estadísticas</div>
+                        </div>
+                    </div>
+                `;
+                friendsList.appendChild(div);
+            });
+        } else {
+            friendsList.innerHTML = '<div class="routine-empty">Aún no tienes amigos conectados.</div>';
+        }
+    }
+
+    async function sendFriendRequest() {
+        const email = $('#friendEmail').value.trim().toLowerCase();
+        if (!email) return;
+
+        const user = await supabaseService.getCurrentUser();
+        if (!user) return;
+
+        // Find user by email
+        const { data: targetUser, error } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .single();
+
+        if (error || !targetUser) {
+            toast('Usuario no encontrado', 'err');
+            return;
+        }
+
+        if (targetUser.id === user.id) {
+            toast('No puedes enviarte solicitud a ti mismo', 'warn');
+            return;
+        }
+
+        const { error: reqError } = await supabase
+            .from(TABLE_FRIEND_REQUESTS)
+            .insert({
+                sender_id: user.id,
+                receiver_id: targetUser.id
+            });
+
+        if (reqError) {
+            if (reqError.code === '23505') { // Unique violation
+                toast('Ya existe una solicitud o amistad', 'warn');
+            } else {
+                toast('Error al enviar solicitud', 'err');
+            }
+        } else {
+            toast('Solicitud enviada', 'ok');
+            $('#friendEmail').value = '';
+        }
+    }
+
+    async function viewFriendStats(friendId) {
+        // Fetch friend's profile
+        const { data: friend } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', friendId)
+            .single();
+
+        if (!friend) {
+            toast('No se pudo cargar el perfil del amigo', 'err');
+            return;
+        }
+
+        // Update friend profile header
+        $('#friendName').textContent = `${friend.first_name} ${friend.last_name}`;
+        $('#friendAvatar').src = friend.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.email}`;
+        $('#friendLastActive').textContent = `Miembro desde ${new Date(friend.updated_at || Date.now()).toLocaleDateString()}`;
+
+        // Fetch friend's user_data to get goals, achievements, sessions, etc.
+        const { data: friendData } = await supabase
+            .from('user_data')
+            .select('data')
+            .eq('user_id', friendId)
+            .maybeSingle();
+
+        const friendUserData = friendData?.data || {};
+
+        // Calculate stats from friend's sessions
+        const friendSessions = friendUserData.sessions || [];
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        const monthlySessions = friendSessions.filter(s => {
+            if (!s.date) return false;
+            const sessionDate = new Date(s.date);
+            return sessionDate.getMonth() === currentMonth && sessionDate.getFullYear() === currentYear;
+        });
+
+        // Calculate monthly volume
+        let monthlyVolume = 0;
+        monthlySessions.forEach(session => {
+            (session.exercises || []).forEach(ex => {
+                (ex.sets || []).forEach(set => {
+                    const kg = parseFloat(set.kg) || 0;
+                    const reps = parseReps(set.reps);
+                    monthlyVolume += kg * reps;
+                });
+            });
+        });
+
+        // Get streak
+        const streak = friendUserData.streak || { current: 0, lastDate: null };
+
+        // Update stats display
+        $('#friendSessions').textContent = monthlySessions.length;
+        $('#friendVolume').textContent = Math.round(monthlyVolume) + ' kg';
+        $('#friendStreak').textContent = streak.current + ' días';
+
+        // Display recent sessions
+        const recentSessions = friendSessions
+            .filter(s => s.completed)
+            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+            .slice(0, 5);
+
+        const recentSessionsContainer = $('#friendRecentSessions');
+        if (recentSessions.length === 0) {
+            recentSessionsContainer.innerHTML = '<div class="routine-empty">No hay entrenamientos recientes.</div>';
+        } else {
+            recentSessionsContainer.innerHTML = recentSessions.map(session => {
+                const date = session.date ? new Date(session.date).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }) : 'Sin fecha';
+                return `
+                    <div class="routine-created__item">
+                        <div style="display:flex; justify-content:space-between; align-items:center">
+                            <div>
+                                <div style="font-weight:600">${session.name || 'Sin nombre'}</div>
+                                <div style="font-size:0.8rem; color:var(--muted)">${date}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Display friend's goals
+        const friendGoals = friendUserData.goals || [];
+        const goalsContainer = $('#friendGoalsList');
+        if (friendGoals.length === 0) {
+            goalsContainer.innerHTML = '<div class="routine-empty">Aún no tiene objetivos.</div>';
+        } else {
+            goalsContainer.innerHTML = friendGoals.map(goal => {
+                const progressPercent = Math.min(100, goal.progress || 0);
+                const progressBar = goal.completed ? '100%' : `${progressPercent}%`;
+                const goalClass = goal.completed ? 'completed' : '';
+                
+                let goalDescription = '';
+                switch (goal.type) {
+                    case 'weight':
+                        goalDescription = `Aumentar peso a ${goal.target} kg${goal.exerciseName ? ` (${goal.exerciseName})` : ''}`;
+                        break;
+                    case 'loseWeight':
+                        goalDescription = `Perder ${goal.target} kg`;
+                        break;
+                    case 'gainWeight':
+                        goalDescription = `Ganar ${goal.target} kg`;
+                        break;
+                    case 'volume':
+                        goalDescription = `Aumentar volumen total a ${goal.target} kg`;
+                        break;
+                    case 'repsWeight':
+                        goalDescription = `${goal.repsTarget} reps con ${goal.target} kg${goal.exerciseName ? ` (${goal.exerciseName})` : ''}`;
+                        break;
+                    case 'sessions':
+                        goalDescription = `Completar ${goal.target} sesiones`;
+                        break;
+                    case 'streak':
+                        goalDescription = `Racha de ${goal.target} días`;
+                        break;
+                    case 'exercise':
+                        goalDescription = `Mejorar ${goal.exerciseName || 'ejercicio'}`;
+                        break;
+                    default:
+                        goalDescription = goal.name || 'Objetivo';
+                }
+
+                return `
+                    <div class="goal-item ${goalClass}" style="opacity: ${goal.completed ? '0.6' : '1'}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+                            <div style="font-weight:600">${goal.name || goalDescription}</div>
+                            <div style="font-size:0.85rem; color:var(--muted)">${Math.round(progressPercent)}%</div>
+                        </div>
+                        <div class="goal-progress">
+                            <div class="goal-progress-bar" style="width:${progressBar}"></div>
+                        </div>
+                        ${goal.deadline ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:4px">Fecha límite: ${new Date(goal.deadline).toLocaleDateString('es-ES')}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Display friend's achievements
+        const friendAchievements = friendUserData.achievements || [];
+        const achievementsContainer = $('#friendAchievementsList');
+        if (friendAchievements.length === 0) {
+            achievementsContainer.innerHTML = '<div class="routine-empty">Aún no tiene logros.</div>';
+        } else {
+            const sortedAchievements = [...friendAchievements].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            achievementsContainer.innerHTML = sortedAchievements.map(ach => {
+                const date = ach.date ? new Date(ach.date).toLocaleDateString('es-ES', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                }) : '';
+                return `
+                    <div class="achievement-item" style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--surface-2); border-radius:8px; margin-bottom:8px">
+                        <div style="font-size:1.5rem">${ach.icon || '🏆'}</div>
+                        <div style="flex:1">
+                            <div style="font-weight:600">${ach.title || 'Logro'}</div>
+                            ${date ? `<div style="font-size:0.75rem; color:var(--muted)">${date}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        $('#friendStatsDialog').showModal();
+    }
+
+    // Bind Social Events
+    document.addEventListener('click', async (e) => {
+        if (e.target.id === 'btnSendRequest') {
+            e.preventDefault();
+            await sendFriendRequest();
+        }
+
+        if (e.target.classList.contains('js-accept-request')) {
+            e.preventDefault();
+            const id = e.target.dataset.id;
+            const { error } = await supabase
+                .from(TABLE_FRIEND_REQUESTS)
+                .update({ status: 'accepted' })
+                .eq('id', id);
+
+            if (!error) {
+                toast('Solicitud aceptada', 'ok');
+                loadSocialData();
+            }
+        }
+    });
+
 });
