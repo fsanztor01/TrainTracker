@@ -517,15 +517,22 @@
                         <!-- Estadísticas -->
                     </div>
 
-                    <details class="medals-details" style="margin-top:16px">
-                        <summary class="medals-summary" style="cursor:pointer; padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); font-weight:600; color:var(--heading); display:flex; align-items:center; gap:8px">
+                    <div style="margin-top:16px">
+                        <h3 class="summary__title" style="margin-bottom:12px; display:flex; align-items:center; gap:8px">
                             <span>🏅</span>
                             <span>Mis medallas</span>
-                        </summary>
-                        <div id="medalsList" style="margin-top:12px; display:grid; grid-template-columns: repeat(3, 1fr); gap:8px">
+                        </h3>
+                        <div id="medalsList" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px">
                             <!-- Se renderizará dinámicamente -->
                         </div>
-                    </details>
+                    </div>
+                </article>
+
+                <article class="card pop" style="padding:16px; margin-top:16px">
+                    <h3 class="summary__title" style="margin-bottom:16px">Todos los Niveles</h3>
+                    <div id="allLevelsList" style="display:grid; gap:12px">
+                        <!-- Lista de niveles -->
+                    </div>
                 </article>
 
                 <!-- Modal de detalles de medalla -->
@@ -540,14 +547,6 @@
                         </div>
                     </form>
                 </dialog>
-            </section>
-
-                <article class="card pop" style="padding:16px; margin-top:16px">
-                    <h3 class="summary__title" style="margin-bottom:16px">Todos los Niveles</h3>
-                    <div id="allLevelsList" style="display:grid; gap:12px">
-                        <!-- Lista de niveles -->
-                    </div>
-                </article>
             </section>
 
             <!-- IMPORTAR -->
