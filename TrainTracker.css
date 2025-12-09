@@ -457,10 +457,22 @@ header::after {
     scroll-behavior: smooth;
 }
 
+/* Panel de niveles sin scroll interno para permitir scroll general */
+#panel-levels {
+    height: auto;
+    overflow: visible;
+    min-height: calc(100vh - var(--nav-h) - 180px);
+}
+
 @media (max-width: 767px) {
     .panel {
         height: calc(100vh - var(--nav-h) - 160px);
         padding-top: 12px;
+    }
+    
+    #panel-levels {
+        height: auto;
+        min-height: calc(100vh - var(--nav-h) - 160px);
     }
 }
 
@@ -5188,4 +5200,37 @@ details>summary::-webkit-details-marker {
         display: grid;
         grid-template-columns: 1fr;
     }
+}
+
+/* ==================== MEDALS ==================== */
+.medal-item:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary) !important;
+}
+
+.medals-details summary {
+    list-style: none;
+}
+
+.medals-details summary::-webkit-details-marker {
+    display: none;
+}
+
+.medals-details summary::marker {
+    display: none;
+}
+
+/* Ensure medals details content doesn't create internal scroll */
+.medals-details {
+    overflow: visible;
+}
+
+.medals-details[open] {
+    overflow: visible;
+}
+
+#medalsList {
+    overflow: visible;
+    max-height: none;
 }

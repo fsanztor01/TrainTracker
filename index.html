@@ -175,7 +175,7 @@
             <!-- PERFIL -->
             <section class="panel" id="panel-profile" role="tabpanel" aria-labelledby="tab-profile" aria-hidden="true">
                 <article class="card pop" style="padding:16px; margin-bottom:12px">
-                    <div id="profileLevelDisplay" style="text-align:center">
+                    <div id="profileLevelDisplay">
                         <!-- Se renderizará dinámicamente -->
                     </div>
                 </article>
@@ -516,7 +516,31 @@
                     <div id="levelStats" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:24px">
                         <!-- Estadísticas -->
                     </div>
+
+                    <details class="medals-details" style="margin-top:16px">
+                        <summary class="medals-summary" style="cursor:pointer; padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); font-weight:600; color:var(--heading); display:flex; align-items:center; gap:8px">
+                            <span>🏅</span>
+                            <span>Mis medallas</span>
+                        </summary>
+                        <div id="medalsList" style="margin-top:12px; display:grid; grid-template-columns: repeat(3, 1fr); gap:8px">
+                            <!-- Se renderizará dinámicamente -->
+                        </div>
+                    </details>
                 </article>
+
+                <!-- Modal de detalles de medalla -->
+                <dialog id="medalDetailDialog" class="modal" aria-labelledby="medalDetailTitle" aria-modal="true">
+                    <form method="dialog">
+                        <div class="modal__head">
+                            <h3 class="modal__title" id="medalDetailTitle">Detalles de la Medalla</h3>
+                            <button class="theme-btn" value="cancel" aria-label="Cerrar">✕</button>
+                        </div>
+                        <div class="modal__body" id="medalDetailContent">
+                            <!-- Se renderizará dinámicamente -->
+                        </div>
+                    </form>
+                </dialog>
+            </section>
 
                 <article class="card pop" style="padding:16px; margin-top:16px">
                     <h3 class="summary__title" style="margin-bottom:16px">Todos los Niveles</h3>

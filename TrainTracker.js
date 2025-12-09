@@ -3245,11 +3245,65 @@ document.addEventListener('DOMContentLoaded', () => {
         { level: 46, name: 'Garra', days: 205, color: '#E53935', icon: '🦅', stage: 'abyssal' },
         { level: 47, name: 'Agrietado', days: 210, color: '#E53935', icon: '🌐', stage: 'abyssal' },
         { level: 48, name: 'Distorsionado', days: 215, color: '#E53935', icon: '🌌', stage: 'abyssal' },
-        { level: 49, name: 'Cornudo', days: 220, color: '#E53935', icon: '👹', stage: 'abyssal' },
+        { level: 49, name: 'Angel corrupto', days: 220, color: '#E53935', icon: '👹', stage: 'abyssal' },
         { level: 50, name: 'Demonio Supremo', days: 225, color: '#B71C1C', icon: '😈', stage: 'abyssal' }
     ];
 
-    // Mensajes motivadores por etapa
+    // Mensajes motivadores por nivel (solo para mostrar en el nivel actual)
+    const LEVEL_MESSAGES = {
+        1: 'Todo empieza con un paso, y hoy lo has dado.',
+        2: 'Tu curiosidad ya es más fuerte que tus dudas.',
+        3: 'Creces un poco cada día, incluso cuando no lo ves.',
+        4: 'Tu disciplina empieza a construirse desde dentro.',
+        5: 'La decisión de seguir ya te diferencia del resto.',
+        6: 'Incluso cansado, avanzas: eso es fuerza real.',
+        7: 'Tu cuerpo responde porque tu mente ya despertó.',
+        8: 'Empiezas a notar de lo que eres capaz.',
+        9: 'Confías más en ti, y eso cambia todo.',
+        10: 'Ya no eres el mismo: estás preparado para más.',
+        11: 'Tu esfuerzo empieza a transformarse en poder.',
+        12: 'Has descubierto que puedes mucho más de lo que pensabas.',
+        13: 'Cada marca del camino demuestra que sigues de pie.',
+        14: 'Has superado momentos duros; eso te ha hecho más fuerte.',
+        15: 'Tu constancia ya es una fuerza imparable.',
+        16: 'No solo avanzas: inspiras a otros sin darte cuenta.',
+        17: 'Incluso herido, sigues luchando: eso es coraje.',
+        18: 'Empiezas a convertirte en tu mejor versión.',
+        19: 'Tu progreso ya parece imposible para quienes no te conocen.',
+        20: 'Has llegado a un nivel que pocos alcanzan.',
+        21: 'Tu energía cambia: estás empezando a brillar.',
+        22: 'Ahora entiendes que tu límite siempre fue mental.',
+        23: 'Fluyes mejor, piensas mejor, avanzas mejor.',
+        24: 'Te mueves como alguien que encontró su camino.',
+        25: 'Has renacido más fuerte de cada caída.',
+        26: 'Tu esencia es más firme, más clara, más tuya.',
+        27: 'Te has forjado a base de decisiones difíciles.',
+        28: 'Tu presencia impacta más de lo que imaginas.',
+        29: 'Destacas porque ya no te escondes.',
+        30: 'Tienes la fuerza de alguien que domina su vida.',
+        31: 'Tu crecimiento ya roza lo extraordinario.',
+        32: 'Has superado barreras que antes parecían imposibles.',
+        33: 'Comprendes cosas que solo se aprenden viviendo.',
+        34: 'Tu poder interior es estable, profundo y real.',
+        35: 'Tu mente se expande más allá de lo común.',
+        36: 'Eres capaz de moldear tu destino con tus actos.',
+        37: 'Controlas tu tiempo, tu energía y tu camino.',
+        38: 'Tu liderazgo surge sin esfuerzo: simplemente eres tú.',
+        39: 'Tu fuerza parece infinita para quienes te observan.',
+        40: 'Has alcanzado un nivel donde nada te detiene.',
+        41: 'Conoces tus sombras y aun así avanzas: eso es grandeza.',
+        42: 'Te enfrentas al caos con una calma que pocos poseen.',
+        43: 'Has atravesado límites que muchos ni se atreven a mirar.',
+        44: 'Sigues adelante incluso cuando el camino oscurece.',
+        45: 'Tienes la fortaleza de quien ya no teme al vacío.',
+        46: 'Tu mente domina lo que antes te dominaba.',
+        47: 'Impactas el mundo de formas que antes soñabas.',
+        48: 'Tu energía mueve más de lo que imaginas.',
+        49: 'Estás al borde de convertirte en imparable.',
+        50: 'Has alcanzado tu máximo poder: esto es solo el principio.'
+    };
+
+    // Mensajes motivadores por etapa (para notificaciones al subir de nivel)
     const MOTIVATIONAL_MESSAGES = {
         human: [
             'Cada día estás más cerca de tu mejor versión.',
@@ -3312,6 +3366,121 @@ document.addEventListener('DOMContentLoaded', () => {
         return null; // Ya está en el nivel máximo
     }
 
+    // Definir rangos de medallas
+    const MEDAL_RANGES = [
+        { min: 1, max: 5, image: 'Level1.png', name: 'Niveles 1-5', color: '#7ED957', stage: 'human' },
+        { min: 6, max: 10, image: 'Level5.png', name: 'Niveles 6-10', color: '#4CAF50', stage: 'human' },
+        { min: 11, max: 15, image: 'Level10.png', name: 'Niveles 11-15', color: '#42A5F5', stage: 'superior' },
+        { min: 16, max: 20, image: 'Level15.png', name: 'Niveles 16-20', color: '#1E88E5', stage: 'superior' },
+        { min: 21, max: 25, image: 'Level20.png', name: 'Niveles 21-25', color: '#FFC74D', stage: 'superhuman' },
+        { min: 26, max: 30, image: 'Level25.png', name: 'Niveles 26-30', color: '#FFB300', stage: 'superhuman' },
+        { min: 31, max: 35, image: 'Level30.png', name: 'Niveles 31-35', color: '#AB47BC', stage: 'divine' },
+        { min: 36, max: 40, image: 'Level35.png', name: 'Niveles 36-40', color: '#8E24AA', stage: 'divine' },
+        { min: 41, max: 45, image: 'Level40.png', name: 'Niveles 41-45', color: '#E53935', stage: 'abyssal' },
+        { min: 46, max: 49, image: 'Level45.png', name: 'Niveles 46-49', color: '#B71C1C', stage: 'abyssal' },
+        { min: 50, max: 50, image: null, name: 'Nivel 50', color: '#B71C1C', stage: 'abyssal', special: true }
+    ];
+
+    // Obtener rangos desbloqueados basándose en días completados
+    function getUnlockedRanges(daysCompleted) {
+        const unlockedRanges = [];
+        
+        for (const range of MEDAL_RANGES) {
+            // Para rangos normales, verificar si el usuario ha alcanzado el nivel mínimo del rango
+            const minLevel = LEVELS_DATA.find(l => l.level === range.min);
+            if (minLevel && daysCompleted >= minLevel.days) {
+                unlockedRanges.push(range);
+            }
+        }
+        
+        return unlockedRanges;
+    }
+
+    // Obtener todas las frases motivacionales de un rango con su nivel
+    function getRangeMessages(range) {
+        const messages = [];
+        for (let level = range.min; level <= range.max; level++) {
+            if (LEVEL_MESSAGES[level]) {
+                messages.push({
+                    level: level,
+                    message: LEVEL_MESSAGES[level]
+                });
+            }
+        }
+        return messages;
+    }
+
+    // Función para obtener la imagen de medalla según el nivel
+    function getMedalImage(level) {
+        const levelNum = typeof level === 'object' ? level.level : level;
+        
+        // Regla especial para nivel 50
+        if (levelNum === 50) {
+            const STORAGE_KEY_50 = 'trainingDiary.level50ReachedAt';
+            let reachedAt = null;
+            
+            try {
+                const stored = localStorage.getItem(STORAGE_KEY_50);
+                if (stored) {
+                    reachedAt = new Date(stored);
+                    // Validar que la fecha sea válida
+                    if (isNaN(reachedAt.getTime())) {
+                        reachedAt = null;
+                    }
+                }
+            } catch (e) {
+                console.warn('Error loading level 50 date:', e);
+            }
+            
+            // Si no hay fecha guardada o es inválida, guardar la fecha actual
+            if (!reachedAt) {
+                reachedAt = new Date();
+                try {
+                    localStorage.setItem(STORAGE_KEY_50, reachedAt.toISOString());
+                } catch (e) {
+                    console.warn('Error saving level 50 date:', e);
+                }
+            }
+            
+            // Calcular días transcurridos
+            const now = new Date();
+            const daysDiff = Math.floor((now - reachedAt) / (1000 * 60 * 60 * 24));
+            
+            // Si han pasado 10 días o más, usar Level+50.png
+            if (daysDiff >= 10) {
+                return 'Level+50.png';
+            }
+            // Si no, usar Level50.png
+            return 'Level50.png';
+        }
+        
+        // Reglas normales para otros niveles
+        if (levelNum >= 1 && levelNum <= 5) {
+            return 'Level1.png';
+        } else if (levelNum >= 6 && levelNum <= 10) {
+            return 'Level5.png';
+        } else if (levelNum >= 11 && levelNum <= 15) {
+            return 'Level10.png';
+        } else if (levelNum >= 16 && levelNum <= 20) {
+            return 'Level15.png';
+        } else if (levelNum >= 21 && levelNum <= 25) {
+            return 'Level20.png';
+        } else if (levelNum >= 26 && levelNum <= 30) {
+            return 'Level25.png';
+        } else if (levelNum >= 31 && levelNum <= 35) {
+            return 'Level30.png';
+        } else if (levelNum >= 36 && levelNum <= 40) {
+            return 'Level35.png';
+        } else if (levelNum >= 41 && levelNum <= 45) {
+            return 'Level40.png';
+        } else if (levelNum >= 46 && levelNum <= 49) {
+            return 'Level45.png';
+        }
+        
+        // Si no coincide con ningún rango, retornar null (usará emoji)
+        return null;
+    }
+
     // Verificar si el usuario subió de nivel y mostrar mensaje
     function checkLevelUp() {
         if (!app.lastLevel) {
@@ -3328,6 +3497,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentLevel.level > app.lastLevel) {
             // El usuario subió de nivel
             app.lastLevel = currentLevel.level;
+            
+            // Si alcanzó el nivel 50 por primera vez, guardar la fecha
+            if (currentLevel.level === 50) {
+                const STORAGE_KEY_50 = 'trainingDiary.level50ReachedAt';
+                try {
+                    const existing = localStorage.getItem(STORAGE_KEY_50);
+                    // Solo guardar si no existe (primera vez)
+                    if (!existing) {
+                        localStorage.setItem(STORAGE_KEY_50, new Date().toISOString());
+                    }
+                } catch (error) {
+                    console.warn('Error saving level 50 date:', error);
+                }
+            }
+            
             // Guardar directamente sin interceptar (evitar recursión)
             const payload = {
                 sessions: app.sessions,
@@ -3386,13 +3570,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const nextLevel = getNextLevel(currentLevel);
 
         // Renderizar nivel actual
-        // Obtener frase motivadora del nivel (primera frase de la etapa)
-        const messages = MOTIVATIONAL_MESSAGES[currentLevel.stage] || MOTIVATIONAL_MESSAGES.human;
-        const motivationalMessage = messages[0];
+        // Obtener frase motivadora específica del nivel
+        const motivationalMessage = LEVEL_MESSAGES[currentLevel.level] || 'Sigue adelante, cada día cuenta.';
+        
+        // Obtener imagen usando la función getMedalImage
+        const imageFile = getMedalImage(currentLevel);
+        
+        // Usar imagen si está definida, emoji como fallback
+        const levelIcon = imageFile 
+            ? `<img src="${imageFile}" alt="Nivel ${currentLevel.level}" style="width:80px; height:80px; object-fit:contain; margin-bottom:8px; background:transparent; mix-blend-mode:normal" onerror="this.onerror=null; this.src=''; this.style.display='none'; const fallback = this.parentElement.querySelector('.level-icon-fallback'); if(fallback) fallback.style.display='block';" />
+                <div class="level-icon-fallback" style="font-size:3rem; margin-bottom:8px; display:none">${currentLevel.icon}</div>`
+            : `<div style="font-size:3rem; margin-bottom:8px">${currentLevel.icon}</div>`;
         
         currentLevelDisplay.innerHTML = `
             <div style="margin-bottom:16px">
-                <div style="font-size:3rem; margin-bottom:8px">${currentLevel.icon}</div>
+                ${levelIcon}
                 <div style="font-size:1.5rem; font-weight:800; color:${currentLevel.color}; margin-bottom:4px">
                     Nivel ${currentLevel.level}
                 </div>
@@ -3454,7 +3646,131 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
+        // Renderizar medallas (rangos desbloqueados)
+        const medalsList = $('#medalsList');
+        if (medalsList) {
+            const unlockedRanges = getUnlockedRanges(daysCompleted);
+            if (unlockedRanges.length === 0) {
+                medalsList.innerHTML = '<div class="routine-empty" style="padding:16px; text-align:center; color:var(--muted); grid-column: 1 / -1;">Aún no has desbloqueado ninguna medalla. ¡Sigue entrenando!</div>';
+            } else {
+                medalsList.innerHTML = unlockedRanges.map(range => {
+                    // Determinar si el rango actual contiene el nivel actual del usuario
+                    const isCurrentRange = currentLevel.level >= range.min && currentLevel.level <= range.max;
+                    
+                    // Para el nivel 50, usar getMedalImage para obtener la imagen correcta (Level50.png o Level+50.png)
+                    let imageFile = range.image;
+                    if (range.special && range.min === 50) {
+                        const level50 = LEVELS_DATA.find(l => l.level === 50);
+                        if (level50) {
+                            imageFile = getMedalImage(level50);
+                        }
+                    }
+                    
+                    const medalIcon = imageFile 
+                        ? `<img src="${imageFile}" alt="${range.name}" style="width:100%; height:auto; object-fit:contain; background:transparent; mix-blend-mode:normal" onerror="this.onerror=null; this.style.display='none'; const fallback = this.parentElement.querySelector('.medal-icon-fallback'); if(fallback) fallback.style.display='block';" />
+                            <div class="medal-icon-fallback" style="font-size:2rem; display:none; text-align:center">🏅</div>`
+                        : `<div style="font-size:2rem; text-align:center">🏅</div>`;
+                    
+                    return `
+                        <div class="medal-item" data-range-min="${range.min}" data-range-max="${range.max}" style="cursor:pointer; padding:12px; background:var(--surface); border-radius:var(--radius); border:${isCurrentRange ? '2px' : '1px'} solid ${isCurrentRange ? range.color : 'var(--border)'}; text-align:center; transition:var(--transition-base); display:flex; flex-direction:column; align-items:center; gap:8px" title="Clic para ver detalles">
+                            <div style="width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center">
+                                ${medalIcon}
+                            </div>
+                            <div style="font-size:0.75rem; font-weight:800; color:${isCurrentRange ? range.color : 'var(--heading)'}">
+                                ${range.name}
+                            </div>
+                            ${isCurrentRange ? '<span style="font-size:0.65rem; padding:2px 6px; background:' + range.color + '; color:white; border-radius:4px; font-weight:600">ACTUAL</span>' : ''}
+                        </div>
+                    `;
+                }).join('');
+                
+                // Añadir event listeners para abrir el modal
+                medalsList.querySelectorAll('.medal-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const rangeMin = parseInt(item.dataset.rangeMin);
+                        const rangeMax = parseInt(item.dataset.rangeMax);
+                        const range = MEDAL_RANGES.find(r => r.min === rangeMin && r.max === rangeMax);
+                        if (range) {
+                            showRangeDetail(range, daysCompleted);
+                        }
+                    });
+                });
+            }
+        }
+
         // Renderizar lista de todos los niveles
+        renderAllLevelsList(daysCompleted, currentLevel);
+    }
+
+    // Mostrar detalles de rango de medalla en modal
+    function showRangeDetail(range, daysCompleted) {
+        const dialog = $('#medalDetailDialog');
+        const content = $('#medalDetailContent');
+        const title = $('#medalDetailTitle');
+        
+        if (!dialog || !content || !title) return;
+        
+        // Obtener imagen del rango
+        let imageFile = range.image;
+        if (range.special && range.min === 50) {
+            const level50 = LEVELS_DATA.find(l => l.level === 50);
+            if (level50) {
+                imageFile = getMedalImage(level50);
+            }
+        }
+        
+        const medalImage = imageFile 
+            ? `<img src="${imageFile}" alt="${range.name}" style="width:150px; height:150px; object-fit:contain; background:transparent; mix-blend-mode:normal; margin:0 auto; display:block" onerror="this.onerror=null; this.style.display='none'; const fallback = this.parentElement.querySelector('.medal-detail-fallback'); if(fallback) fallback.style.display='block';" />
+                <div class="medal-detail-fallback" style="font-size:4rem; display:none; text-align:center; margin:20px 0">🏅</div>`
+            : `<div style="font-size:4rem; text-align:center; margin:20px 0">🏅</div>`;
+        
+        // Obtener todas las frases motivacionales del rango
+        const rangeMessages = getRangeMessages(range);
+        
+        // Obtener el nivel mínimo del rango para mostrar información de desbloqueo
+        const minLevel = LEVELS_DATA.find(l => l.level === range.min);
+        const unlockDays = minLevel ? minLevel.days : 0;
+        
+        title.textContent = `Medalla - ${range.name}`;
+        content.innerHTML = `
+            <div style="text-align:center">
+                ${medalImage}
+                <div style="margin-top:20px">
+                    <div style="font-size:1.25rem; font-weight:800; color:${range.color}; margin-bottom:8px">
+                        ${range.name}
+                    </div>
+                    <div style="font-size:0.9rem; color:var(--muted); margin-bottom:16px; padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border)">
+                        <div style="font-weight:600; color:var(--heading); margin-bottom:4px">Desbloqueado a los:</div>
+                        <div style="font-size:1.1rem; font-weight:800; color:${range.color}">${unlockDays} ${unlockDays === 1 ? 'día' : 'días'} completados</div>
+                    </div>
+                    <div style="font-size:0.95rem; color:var(--muted); padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border); text-align:left">
+                        <div style="font-weight:600; color:var(--heading); margin-bottom:12px; text-align:center">Frases motivacionales:</div>
+                        <div style="display:flex; flex-direction:column; gap:8px">
+                            ${rangeMessages.map(item => {
+                                const levelData = LEVELS_DATA.find(l => l.level === item.level);
+                                return `
+                                    <div style="font-style:italic; padding:8px; background:var(--surface-2); border-radius:var(--radius); border-left:3px solid ${range.color}">
+                                        <div style="font-size:0.75rem; font-weight:600; color:${levelData ? levelData.color : range.color}; margin-bottom:4px; font-style:normal">
+                                            Nivel ${item.level}
+                                        </div>
+                                        <div>"${item.message}"</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        dialog.showModal();
+    }
+
+    // Renderizar lista de todos los niveles
+    function renderAllLevelsList(daysCompleted, currentLevel) {
+        const allLevelsList = $('#allLevelsList');
+        if (!allLevelsList) return;
+        
         allLevelsList.innerHTML = LEVELS_DATA.map(level => {
             const isUnlocked = daysCompleted >= level.days;
             const isCurrent = level.level === currentLevel.level;
@@ -6249,23 +6565,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render level display
         const levelDisplay = $('#profileLevelDisplay');
-        if (levelDisplay && typeof getCompletedDays === 'function' && typeof getCurrentLevel === 'function') {
+        if (levelDisplay && typeof getCompletedDays === 'function' && typeof getCurrentLevel === 'function' && typeof getMedalImage === 'function') {
             const daysCompleted = getCompletedDays();
             const currentLevel = getCurrentLevel(daysCompleted);
+            const imageFile = getMedalImage(currentLevel);
+            
+            const levelImage = imageFile 
+                ? `<img src="${imageFile}" alt="Nivel ${currentLevel.level}" style="width:70px; height:70px; object-fit:contain; background:transparent; mix-blend-mode:normal; flex-shrink:0" onerror="this.onerror=null; this.src=''; this.style.display='none'; const fallback = this.parentElement.querySelector('.level-icon-fallback'); if(fallback) fallback.style.display='block';" />
+                    <div class="level-icon-fallback" style="font-size:2rem; display:none">${currentLevel.icon}</div>`
+                : `<div style="font-size:2rem; width:70px; height:70px; display:flex; align-items:center; justify-content:center; flex-shrink:0">${currentLevel.icon}</div>`;
+            
             levelDisplay.innerHTML = `
-                <div style="display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap">
-                    <div style="font-size:2rem">${currentLevel.icon}</div>
-                    <div style="flex:1; min-width:200px">
-                        <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px">Nivel Actual</div>
-                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-                            <span style="font-size:1.25rem; font-weight:800; color:${currentLevel.color}">
-                                Nivel ${currentLevel.level}
-                            </span>
-                            <span style="font-size:1rem; font-weight:600; color:var(--heading)">
-                                ${currentLevel.name}
-                            </span>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%">
+                    <div style="display:flex; align-items:center; justify-content:center; flex-shrink:0">
+                        ${levelImage}
+                    </div>
+                    <div style="display:flex; flex-direction:column; flex:1; min-width:0">
+                        <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px">Nivel actual</div>
+                        <div style="font-size:1.1rem; font-weight:800; color:var(--heading); margin-bottom:4px">
+                            ${currentLevel.name}
                         </div>
-                        <div style="font-size:0.8rem; color:var(--muted); margin-top:4px">
+                        <div style="font-size:0.85rem; color:var(--muted)">
                             ${daysCompleted} ${daysCompleted === 1 ? 'día' : 'días'} completados
                         </div>
                     </div>
