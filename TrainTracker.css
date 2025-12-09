@@ -517,7 +517,9 @@ header::after {
     min-height: 44px;
     padding: 0 var(--spacing-xl);
     border-radius: var(--radius);
-    background: linear-gradient(135deg, var(--primary), var(--primary-600));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--primary) 100%, white 12%), 
+        color-mix(in srgb, var(--primary-600) 100%, black 18%));
     color: #ffffff;
     border: 0;
     font-weight: 600;
@@ -551,7 +553,9 @@ header::after {
 }
 
 .btn:hover {
-    background: linear-gradient(135deg, var(--primary-600), var(--primary));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--primary-600) 100%, black 18%), 
+        color-mix(in srgb, var(--primary) 100%, white 12%));
     box-shadow: var(--shadow-hover), 0 0 20px rgba(94, 169, 255, 0.3);
     transform: translateY(-2px);
 }
@@ -600,7 +604,9 @@ header::after {
 
 /* Professional light mode buttons */
 [data-theme="light"] .btn {
-    background: linear-gradient(135deg, var(--primary), var(--primary-600));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--primary) 100%, white 10%), 
+        color-mix(in srgb, var(--primary-600) 100%, black 12%));
     box-shadow: var(--shadow), 0 0 0 0 rgba(94, 169, 255, 0.3);
 }
 
@@ -611,7 +617,9 @@ header::after {
 }
 
 [data-theme="light"] .btn:hover {
-    background: linear-gradient(135deg, var(--primary-600), var(--primary));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--primary-600) 100%, black 12%), 
+        color-mix(in srgb, var(--primary) 100%, white 10%));
     box-shadow: var(--shadow-hover), 0 0 16px rgba(94, 169, 255, 0.25);
     transform: translateY(-2px);
 }
@@ -649,7 +657,9 @@ header::after {
 }
 
 .btn--secondary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-600));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--accent) 100%, white 12%), 
+        color-mix(in srgb, var(--accent-600) 100%, black 18%));
     color: #ffffff;
     border: 0;
     font-weight: 600;
@@ -681,7 +691,9 @@ header::after {
 }
 
 .btn--secondary:hover {
-    background: linear-gradient(135deg, var(--accent-600), var(--accent));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--accent-600) 100%, black 18%), 
+        color-mix(in srgb, var(--accent) 100%, white 12%));
     box-shadow: var(--shadow-hover), 0 0 20px rgba(94, 169, 255, 0.3);
     transform: translateY(-2px);
 }
@@ -694,7 +706,9 @@ header::after {
 
 /* Professional light mode secondary buttons */
 [data-theme="light"] .btn--secondary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-600));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--accent) 100%, white 10%), 
+        color-mix(in srgb, var(--accent-600) 100%, black 12%));
     box-shadow: var(--shadow), 0 0 0 0 rgba(94, 169, 255, 0.3);
 }
 
@@ -705,7 +719,9 @@ header::after {
 }
 
 [data-theme="light"] .btn--secondary:hover {
-    background: linear-gradient(135deg, var(--accent-600), var(--accent));
+    background: linear-gradient(135deg, 
+        color-mix(in srgb, var(--accent-600) 100%, black 12%), 
+        color-mix(in srgb, var(--accent) 100%, white 10%));
     box-shadow: var(--shadow-hover), 0 0 16px rgba(94, 169, 255, 0.25);
     transform: translateY(-2px);
 }
@@ -933,6 +949,21 @@ header::after {
     color: var(--text);
 }
 
+.stats-table td.progress--up {
+    color: var(--progress-green);
+    font-weight: 600;
+}
+
+.stats-table td.progress--down {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.stats-table td.progress--same {
+    color: var(--warn);
+    font-weight: 600;
+}
+
 .stats-table tr:last-child td {
     border-bottom: none;
 }
@@ -942,7 +973,7 @@ header::after {
 }
 
 .progress--up {
-    color: var(--success);
+    color: var(--progress-green);
     font-weight: 600;
 }
 
@@ -952,7 +983,8 @@ header::after {
 }
 
 .progress--same {
-    color: var(--muted);
+    color: var(--warn);
+    font-weight: 600;
 }
 
 /* Exercise Suggestions Dropdown */
@@ -1312,6 +1344,22 @@ h6 {
 [data-theme="light"] .kpi:hover {
     box-shadow: var(--shadow-hover);
     border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Button with KPI style */
+.btn--kpi-style {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+[data-theme="light"] .btn--kpi-style {
+    background: linear-gradient(135deg, #ffffff, #fafbfc) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: var(--shadow) !important;
     transform: translateY(-3px) scale(1.02);
 }
 
@@ -3468,7 +3516,41 @@ dialog {
     font-size: 0.85rem;
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: 8px;
+}
+
+.note-delete-btn {
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-base);
+    line-height: 1;
+}
+
+.note-delete-btn:hover {
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--danger);
+    transform: scale(1.1);
+}
+
+[data-theme="light"] .note-delete-btn {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .note-delete-btn:hover {
+    background: rgba(0, 0, 0, 0.2);
+}
 }
 
 /* ==================== COLOR PICKER ==================== */

@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, ch => HTML_ESCAPE[ch] || ch);
     }
 
-    const TABLE_FRIEND_REQUESTS = 'friend_requests';
 
     const THEME_KEY = 'trainingDiary.theme';
     const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
@@ -81,6 +80,42 @@ document.addEventListener('DOMContentLoaded', () => {
         gris: {
             dark: { primary: '#adb5bd', primary600: '#868e96', accent: '#adb5bd', accent600: '#868e96' },
             light: { primary: '#8e8e93', primary600: '#636366', accent: '#8e8e93', accent600: '#636366' }
+        },
+        turquesa: {
+            dark: { primary: '#00d4aa', primary600: '#00b894', accent: '#00d4aa', accent600: '#00b894' },
+            light: { primary: '#00d4aa', primary600: '#00b894', accent: '#00d4aa', accent600: '#00b894' }
+        },
+        esmeralda: {
+            dark: { primary: '#10b981', primary600: '#059669', accent: '#10b981', accent600: '#059669' },
+            light: { primary: '#10b981', primary600: '#059669', accent: '#10b981', accent600: '#059669' }
+        },
+        indigo: {
+            dark: { primary: '#6366f1', primary600: '#4f46e5', accent: '#6366f1', accent600: '#4f46e5' },
+            light: { primary: '#6366f1', primary600: '#4f46e5', accent: '#6366f1', accent600: '#4f46e5' }
+        },
+        fucsia: {
+            dark: { primary: '#d946ef', primary600: '#c026d3', accent: '#d946ef', accent600: '#c026d3' },
+            light: { primary: '#d946ef', primary600: '#c026d3', accent: '#d946ef', accent600: '#c026d3' }
+        },
+        coral: {
+            dark: { primary: '#ff7f50', primary600: '#ff6348', accent: '#ff7f50', accent600: '#ff6348' },
+            light: { primary: '#ff7f50', primary600: '#ff6348', accent: '#ff7f50', accent600: '#ff6348' }
+        },
+        lima: {
+            dark: { primary: '#84cc16', primary600: '#65a30d', accent: '#84cc16', accent600: '#65a30d' },
+            light: { primary: '#84cc16', primary600: '#65a30d', accent: '#84cc16', accent600: '#65a30d' }
+        },
+        teal: {
+            dark: { primary: '#14b8a6', primary600: '#0d9488', accent: '#14b8a6', accent600: '#0d9488' },
+            light: { primary: '#14b8a6', primary600: '#0d9488', accent: '#14b8a6', accent600: '#0d9488' }
+        },
+        violeta: {
+            dark: { primary: '#8b5cf6', primary600: '#7c3aed', accent: '#8b5cf6', accent600: '#7c3aed' },
+            light: { primary: '#8b5cf6', primary600: '#7c3aed', accent: '#8b5cf6', accent600: '#7c3aed' }
+        },
+        carmesi: {
+            dark: { primary: '#dc2626', primary600: '#b91c1c', accent: '#dc2626', accent600: '#b91c1c' },
+            light: { primary: '#dc2626', primary600: '#b91c1c', accent: '#dc2626', accent600: '#b91c1c' }
         }
     };
 
@@ -94,7 +129,16 @@ document.addEventListener('DOMContentLoaded', () => {
         rosa: 'Rosa',
         naranja: 'Naranja',
         cian: 'Cian',
-        gris: 'Gris'
+        gris: 'Gris',
+        turquesa: 'Turquesa',
+        esmeralda: 'Esmeralda',
+        indigo: 'Índigo',
+        fucsia: 'Fucsia',
+        coral: 'Coral',
+        lima: 'Lima',
+        teal: 'Teal',
+        violeta: 'Violeta',
+        carmesi: 'Carmesí'
     };
 
     // Load saved colors or use defaults
@@ -216,8 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Render swatches when profile panel is shown
     function initColorPicker() {
-        const profilePanel = $('#panel-profile');
-        if (profilePanel && profilePanel.getAttribute('aria-hidden') === 'false') {
+        const colorsPanel = $('#panel-colors');
+        if (colorsPanel && colorsPanel.getAttribute('aria-hidden') === 'false') {
             renderColorSwatches();
         }
     }
@@ -256,6 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statsPeriod: '8weeks', // Nuevo: período de comparación para estadísticas
         goals: [], // Sistema de objetivos
         recentAchievements: [], // Logros recientes para celebración
+        lastLevel: 1, // Nivel actual del usuario
         // Manual save system
         editingSessions: {}, // { sessionId: { isEditing: bool, hasChanges: bool, originalState: {} } }
         sessionSnapshots: {} // Backup copies for cancel
@@ -790,59 +835,33 @@ document.addEventListener('DOMContentLoaded', () => {
             weeklyGoal: app.weeklyGoal || { target: 3, current: 0 },
             statsPeriod: app.statsPeriod || '8weeks', // Guardar el período de estadísticas
             goals: app.goals || [],
-            recentAchievements: app.recentAchievements || []
+            recentAchievements: app.recentAchievements || [],
+            lastLevel: app.lastLevel || 1
         };
 
-        // Try to save to Supabase if available, otherwise fallback to localStorage
-        if (typeof supabaseService !== 'undefined') {
-            const isAvailable = await supabaseService.isAvailable();
-            if (isAvailable) {
-                try {
-                    await supabaseService.saveUserData(payload);
-                } catch (error) {
-                    console.warn('Supabase save failed, using localStorage:', error);
-                    // Fallback to localStorage
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-                }
-            } else {
-                // Use localStorage as fallback
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-            }
-        } else {
-            // Use localStorage as fallback
+        // Save to localStorage
+        try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        } catch (error) {
+            console.error('Error saving to localStorage:', error);
         }
     }
 
     async function load() {
         let parsed = null;
 
-        // Try to load from Supabase if available
-        if (typeof supabaseService !== 'undefined') {
-            const isAvailable = await supabaseService.isAvailable();
-            if (isAvailable) {
-                try {
-                    parsed = await supabaseService.loadUserData();
-                } catch (error) {
-                    console.warn('Supabase load failed, using localStorage:', error);
-                }
-            }
-        }
-
-        // If Supabase didn't return data, try localStorage
-        if (!parsed) {
-            try {
-                const raw = localStorage.getItem(STORAGE_KEY);
-                if (!raw) {
-                    initializeDefaultData();
-                    return;
-                }
-                parsed = JSON.parse(raw);
-            } catch (error) {
-                console.error('Error loading from localStorage:', error);
+        // Load from localStorage
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) {
                 initializeDefaultData();
                 return;
             }
+            parsed = JSON.parse(raw);
+        } catch (error) {
+            console.error('Error loading from localStorage:', error);
+            initializeDefaultData();
+            return;
         }
 
         // Parse and load data
@@ -905,6 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.statsPeriod = parsed.statsPeriod || 'lastWeek';
                 app.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
                 app.recentAchievements = Array.isArray(parsed.recentAchievements) ? parsed.recentAchievements : [];
+                app.lastLevel = parsed.lastLevel || 1;
             }
 
             // Save after migration to ensure all sessions have completed field
@@ -990,10 +1010,11 @@ document.addEventListener('DOMContentLoaded', () => {
             'panel-diary': 'navDiary',
             'panel-stats': 'navStats',
             'panel-import': 'navImport',
-            'panel-social': null,
             'panel-routines': null,
             'panel-profile': null,
-            'panel-goals': null
+            'panel-goals': null,
+            'panel-colors': null,
+            'panel-levels': null
         };
 
         function updateNav(panelId) {
@@ -1026,11 +1047,12 @@ document.addEventListener('DOMContentLoaded', () => {
             updateNav(panelId);
             if (panelId === 'panel-diary') { renderSessions(); }
             if (panelId === 'panel-stats') { buildStats(); buildChartState(); drawChart(); }
-            if (panelId === 'panel-social') { loadSocialData(); }
             if (panelId === 'panel-import') { initWeekSelector(); }
             if (panelId === 'panel-routines') { renderRoutines(); }
             if (panelId === 'panel-profile') { renderProfile(); }
-            if (panelId === 'panel-goals') { renderGoals(); renderRecentAchievements(); renderAllAchievements(); }
+            if (panelId === 'panel-goals') { renderGoals(); renderRecentAchievements(); renderAllAchievements(); renderCompetitiveMode(); }
+            if (panelId === 'panel-colors') { renderColorSwatches(); }
+            if (panelId === 'panel-levels') { renderLevels(); }
         }
 
         tabs.forEach(btn => {
@@ -3121,6 +3143,20 @@ document.addEventListener('DOMContentLoaded', () => {
         app.deleteTarget = { type: 'session', id };
         showConfirmDialog('¿Estás seguro de que quieres eliminar esta sesión? Esta acción no se puede deshacer.');
     }
+
+    function clearWeek() {
+        const weekSessions = getWeekSessions();
+        if (weekSessions.length === 0) {
+            toast('No hay sesiones en esta semana para eliminar', 'warn');
+            return;
+        }
+        app.deleteTarget = { type: 'week', sessionIds: weekSessions.map(s => s.id) };
+        const weekLabel = (app.weekOffset === 0) ? 'esta semana' 
+            : (app.weekOffset === -1 ? 'la semana pasada' 
+                : (app.weekOffset === 1 ? 'la semana siguiente' 
+                    : 'esta semana'));
+        showConfirmDialog(`¿Estás seguro de que quieres eliminar todas las sesiones de ${weekLabel}? Se eliminarán ${weekSessions.length} sesión${weekSessions.length > 1 ? 'es' : ''}. Esta acción no se puede deshacer.`);
+    }
     /* =================== FIESTA CELEBRATION ANIMATION =================== */
     function triggerFiestaCelebration(sessionId) {
         // Check if user prefers reduced motion
@@ -3146,6 +3182,336 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Create level-up notification with session name
         createLevelUpNotification(session.name);
+    }
+
+    /* =================== LEVEL SYSTEM =================== */
+    
+    // Definición de los 50 niveles
+    const LEVELS_DATA = [
+        // Niveles 1-10 (Humanos - Verdes)
+        { level: 1, name: 'Novato', days: 0, color: '#7ED957', icon: '👤', stage: 'human' },
+        { level: 2, name: 'Iniciado', days: 1, color: '#7ED957', icon: '👟', stage: 'human' },
+        { level: 3, name: 'Aprendiz', days: 3, color: '#7ED957', icon: '📖', stage: 'human' },
+        { level: 4, name: 'Practicante', days: 5, color: '#7ED957', icon: '⏰', stage: 'human' },
+        { level: 5, name: 'Disciplinado', days: 7, color: '#7ED957', icon: '📅', stage: 'human' },
+        { level: 6, name: 'Constante', days: 10, color: '#7ED957', icon: '🛡️', stage: 'human' },
+        { level: 7, name: 'Dedicado', days: 13, color: '#7ED957', icon: '💪', stage: 'human' },
+        { level: 8, name: 'Comprometido', days: 16, color: '#7ED957', icon: '⭐', stage: 'human' },
+        { level: 9, name: 'Resuelto', days: 20, color: '#7ED957', icon: '✨', stage: 'human' },
+        { level: 10, name: 'Maestro Humano', days: 25, color: '#4CAF50', icon: '👑', stage: 'human' },
+        
+        // Niveles 11-20 (Superiores - Azules)
+        { level: 11, name: 'Superior', days: 30, color: '#42A5F5', icon: '🏅', stage: 'superior' },
+        { level: 12, name: 'Distinguido', days: 35, color: '#42A5F5', icon: '✍️', stage: 'superior' },
+        { level: 13, name: 'Reconocido', days: 40, color: '#42A5F5', icon: '🔖', stage: 'superior' },
+        { level: 14, name: 'Eminente', days: 45, color: '#42A5F5', icon: '🏛️', stage: 'superior' },
+        { level: 15, name: 'Elevado', days: 50, color: '#42A5F5', icon: '⛰️', stage: 'superior' },
+        { level: 16, name: 'Sublime', days: 55, color: '#42A5F5', icon: '🏔️', stage: 'superior' },
+        { level: 17, name: 'Trascendente', days: 60, color: '#42A5F5', icon: '👣', stage: 'superior' },
+        { level: 18, name: 'Excepcional', days: 65, color: '#42A5F5', icon: '🛡️', stage: 'superior' },
+        { level: 19, name: 'Extraordinario', days: 70, color: '#42A5F5', icon: '⚡', stage: 'superior' },
+        { level: 20, name: 'Maestro Superior', days: 75, color: '#1E88E5', icon: '👑', stage: 'superior' },
+        
+        // Niveles 21-30 (Sobrehumanos - Dorados)
+        { level: 21, name: 'Sobrehumano', days: 80, color: '#FFC74D', icon: '⬆️', stage: 'superhuman' },
+        { level: 22, name: 'Trascendido', days: 85, color: '#FFC74D', icon: '😇', stage: 'superhuman' },
+        { level: 23, name: 'Radiante', days: 90, color: '#FFC74D', icon: '✨', stage: 'superhuman' },
+        { level: 24, name: 'Laureado', days: 95, color: '#FFC74D', icon: '🌿', stage: 'superhuman' },
+        { level: 25, name: 'Alado', days: 100, color: '#FFC74D', icon: '🪽', stage: 'superhuman' },
+        { level: 26, name: 'Forjador', days: 105, color: '#FFC74D', icon: '⚒️', stage: 'superhuman' },
+        { level: 27, name: 'Forjador Mayor', days: 110, color: '#FFC74D', icon: '🔨', stage: 'superhuman' },
+        { level: 28, name: 'Cometa', days: 115, color: '#FFC74D', icon: '☄️', stage: 'superhuman' },
+        { level: 29, name: 'Solar', days: 120, color: '#FFC74D', icon: '☀️', stage: 'superhuman' },
+        { level: 30, name: 'Maestro Sobrehumano', days: 125, color: '#FFB300', icon: '👑', stage: 'superhuman' },
+        
+        // Niveles 31-40 (Divinos - Violetas)
+        { level: 31, name: 'Divino', days: 130, color: '#AB47BC', icon: '🔺', stage: 'divine' },
+        { level: 32, name: 'Trinitario', days: 135, color: '#AB47BC', icon: '🔺', stage: 'divine' },
+        { level: 33, name: 'Mandálico', days: 140, color: '#AB47BC', icon: '🕉️', stage: 'divine' },
+        { level: 34, name: 'Cetrado', days: 145, color: '#AB47BC', icon: '⚜️', stage: 'divine' },
+        { level: 35, name: 'Espiral', days: 150, color: '#AB47BC', icon: '🌀', stage: 'divine' },
+        { level: 36, name: 'Perfecto', days: 155, color: '#AB47BC', icon: '⭕', stage: 'divine' },
+        { level: 37, name: 'Astral', days: 160, color: '#AB47BC', icon: '🕐', stage: 'divine' },
+        { level: 38, name: 'Estelar', days: 165, color: '#AB47BC', icon: '⭐', stage: 'divine' },
+        { level: 39, name: 'Infinito', days: 170, color: '#AB47BC', icon: '♾️', stage: 'divine' },
+        { level: 40, name: 'Maestro Divino', days: 175, color: '#8E24AA', icon: '💎', stage: 'divine' },
+        
+        // Niveles 41-50 (Abismales/Demoníacos - Rojos)
+        { level: 41, name: 'Abismal', days: 180, color: '#E53935', icon: '🌑', stage: 'abyssal' },
+        { level: 42, name: 'Fractal', days: 185, color: '#E53935', icon: '🔷', stage: 'abyssal' },
+        { level: 43, name: 'Oscuro', days: 190, color: '#E53935', icon: '👁️', stage: 'abyssal' },
+        { level: 44, name: 'Encapuchado', days: 195, color: '#E53935', icon: '🧙', stage: 'abyssal' },
+        { level: 45, name: 'Vacío', days: 200, color: '#E53935', icon: '⭕', stage: 'abyssal' },
+        { level: 46, name: 'Garra', days: 205, color: '#E53935', icon: '🦅', stage: 'abyssal' },
+        { level: 47, name: 'Agrietado', days: 210, color: '#E53935', icon: '🌐', stage: 'abyssal' },
+        { level: 48, name: 'Distorsionado', days: 215, color: '#E53935', icon: '🌌', stage: 'abyssal' },
+        { level: 49, name: 'Cornudo', days: 220, color: '#E53935', icon: '👹', stage: 'abyssal' },
+        { level: 50, name: 'Demonio Supremo', days: 225, color: '#B71C1C', icon: '😈', stage: 'abyssal' }
+    ];
+
+    // Mensajes motivadores por etapa
+    const MOTIVATIONAL_MESSAGES = {
+        human: [
+            'Cada día estás más cerca de tu mejor versión.',
+            'La constancia está empezando a dar frutos.',
+            'Gran paso. Ya no eres el mismo que ayer.'
+        ],
+        superior: [
+            'Tu disciplina ya destaca entre los demás.',
+            'Estás construyendo algo que pocos logran.',
+            'Tu progreso habla por sí solo.'
+        ],
+        superhuman: [
+            'Cruzas límites que muy pocos pisan.',
+            'Tu fuerza ya inspira.',
+            'Has entrado en territorio legendario.'
+        ],
+        divine: [
+            'Tu voluntad trasciende lo humano.',
+            'Estás reescribiendo lo imposible.',
+            'Tu energía ya es otra cosa.'
+        ],
+        abyssal: [
+            'Has mirado al abismo, y avanzaste.',
+            'Tu poder pertenece a otro plano.',
+            'Estás a un paso de convertirte en mito.'
+        ]
+    };
+
+    // Calcular días completados (sesiones completadas)
+    function getCompletedDays() {
+        const completedSessions = app.sessions.filter(s => s.completed === true);
+        // Contar días únicos con sesiones completadas
+        const uniqueDays = new Set();
+        completedSessions.forEach(s => {
+            if (s.date) {
+                uniqueDays.add(s.date);
+            }
+        });
+        return uniqueDays.size;
+    }
+
+    // Determinar el nivel actual basado en días completados
+    function getCurrentLevel(daysCompleted) {
+        // Buscar el nivel más alto que el usuario ha alcanzado
+        for (let i = LEVELS_DATA.length - 1; i >= 0; i--) {
+            if (daysCompleted >= LEVELS_DATA[i].days) {
+                return LEVELS_DATA[i];
+            }
+        }
+        // Si no alcanza ningún nivel, está en nivel 1
+        return LEVELS_DATA[0];
+    }
+
+    // Obtener el siguiente nivel
+    function getNextLevel(currentLevel) {
+        const currentIndex = LEVELS_DATA.findIndex(l => l.level === currentLevel.level);
+        if (currentIndex < LEVELS_DATA.length - 1) {
+            return LEVELS_DATA[currentIndex + 1];
+        }
+        return null; // Ya está en el nivel máximo
+    }
+
+    // Verificar si el usuario subió de nivel y mostrar mensaje
+    function checkLevelUp() {
+        if (!app.lastLevel) {
+            // Primera vez, guardar nivel actual
+            const daysCompleted = getCompletedDays();
+            const currentLevel = getCurrentLevel(daysCompleted);
+            app.lastLevel = currentLevel.level;
+            return;
+        }
+
+        const daysCompleted = getCompletedDays();
+        const currentLevel = getCurrentLevel(daysCompleted);
+
+        if (currentLevel.level > app.lastLevel) {
+            // El usuario subió de nivel
+            app.lastLevel = currentLevel.level;
+            // Guardar directamente sin interceptar (evitar recursión)
+            const payload = {
+                sessions: app.sessions,
+                routines: app.routines,
+                profile: app.profile,
+                notes: app.notes,
+                prs: app.prs || {},
+                onerm: app.onerm || {},
+                exerciseNotes: app.exerciseNotes || {},
+                achievements: app.achievements || [],
+                streak: app.streak || { current: 0, lastDate: null },
+                weeklyGoal: app.weeklyGoal || { target: 3, current: 0 },
+                statsPeriod: app.statsPeriod || '8weeks',
+                goals: app.goals || [],
+                recentAchievements: app.recentAchievements || [],
+                lastLevel: app.lastLevel || 1
+            };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (error) {
+                console.error('Error saving to localStorage:', error);
+            }
+
+            // Mostrar mensaje motivador
+            const messages = MOTIVATIONAL_MESSAGES[currentLevel.stage] || MOTIVATIONAL_MESSAGES.human;
+            const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            
+            // Crear notificación especial
+            toast(`🎉 ¡Nivel ${currentLevel.level} alcanzado! ${currentLevel.name}`, 'ok');
+            
+            // Mostrar mensaje motivador después de un breve delay
+            setTimeout(() => {
+                toast(randomMessage, 'ok');
+            }, 1500);
+
+            // Efecto visual (confetti si está disponible)
+            if (typeof createConfetti === 'function') {
+                setTimeout(() => {
+                    createConfetti();
+                }, 500);
+            }
+        }
+    }
+
+    // Renderizar el apartado de niveles
+    function renderLevels() {
+        const currentLevelDisplay = $('#currentLevelDisplay');
+        const levelProgressBar = $('#levelProgressBar');
+        const levelStats = $('#levelStats');
+        const allLevelsList = $('#allLevelsList');
+
+        if (!currentLevelDisplay || !levelProgressBar || !levelStats || !allLevelsList) return;
+
+        const daysCompleted = getCompletedDays();
+        const currentLevel = getCurrentLevel(daysCompleted);
+        const nextLevel = getNextLevel(currentLevel);
+
+        // Renderizar nivel actual
+        // Obtener frase motivadora del nivel (primera frase de la etapa)
+        const messages = MOTIVATIONAL_MESSAGES[currentLevel.stage] || MOTIVATIONAL_MESSAGES.human;
+        const motivationalMessage = messages[0];
+        
+        currentLevelDisplay.innerHTML = `
+            <div style="margin-bottom:16px">
+                <div style="font-size:3rem; margin-bottom:8px">${currentLevel.icon}</div>
+                <div style="font-size:1.5rem; font-weight:800; color:${currentLevel.color}; margin-bottom:4px">
+                    Nivel ${currentLevel.level}
+                </div>
+                <div style="font-size:1.1rem; color:var(--heading); font-weight:600; margin-bottom:4px">
+                    ${currentLevel.name}
+                </div>
+                <div style="font-size:0.95rem; color:var(--muted); font-style:italic; padding:0 16px">
+                    ${motivationalMessage}
+                </div>
+            </div>
+        `;
+
+        // Renderizar barra de progreso
+        if (nextLevel) {
+            const daysInCurrentLevel = daysCompleted - currentLevel.days;
+            const daysNeededForNext = nextLevel.days - currentLevel.days;
+            const progressPercent = Math.min(100, (daysInCurrentLevel / daysNeededForNext) * 100);
+
+            levelProgressBar.innerHTML = `
+                <div style="margin-bottom:8px; display:flex; justify-content:space-between; align-items:center">
+                    <span style="font-size:0.9rem; color:var(--muted)">Progreso hacia ${nextLevel.name}</span>
+                    <span style="font-size:0.9rem; color:var(--muted); font-weight:600">
+                        ${daysInCurrentLevel} / ${daysNeededForNext} días
+                    </span>
+                </div>
+                <div style="width:100%; height:12px; background:var(--surface-2); border-radius:6px; overflow:hidden; position:relative">
+                    <div style="width:${progressPercent}%; height:100%; background:linear-gradient(90deg, ${currentLevel.color}, ${nextLevel.color}); border-radius:6px; transition:width 0.5s ease"></div>
+                </div>
+            `;
+        } else {
+            // Nivel máximo alcanzado
+            levelProgressBar.innerHTML = `
+                <div style="text-align:center; padding:16px; background:var(--surface); border-radius:var(--radius); border:2px solid ${currentLevel.color}">
+                    <div style="font-size:1.2rem; font-weight:800; color:${currentLevel.color}; margin-bottom:4px">
+                        ¡Nivel Máximo Alcanzado!
+                    </div>
+                    <div style="font-size:0.9rem; color:var(--muted)">
+                        Has alcanzado el nivel más alto. ¡Eres un ${currentLevel.name}!
+                    </div>
+                </div>
+            `;
+        }
+
+        // Renderizar estadísticas
+        levelStats.innerHTML = `
+            <div style="text-align:center; padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border)">
+                <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px">Días Completados</div>
+                <div style="font-size:1.5rem; font-weight:800; color:var(--heading)">${daysCompleted}</div>
+            </div>
+            <div style="text-align:center; padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border)">
+                <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px">Nivel Actual</div>
+                <div style="font-size:1.5rem; font-weight:800; color:${currentLevel.color}">${currentLevel.level}</div>
+            </div>
+            <div style="text-align:center; padding:12px; background:var(--surface); border-radius:var(--radius); border:1px solid var(--border)">
+                <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px">${nextLevel ? 'Días para Siguiente' : 'Nivel Máximo'}</div>
+                <div style="font-size:1.5rem; font-weight:800; color:${nextLevel ? nextLevel.color : currentLevel.color}">
+                    ${nextLevel ? (nextLevel.days - daysCompleted) : '—'}
+                </div>
+            </div>
+        `;
+
+        // Renderizar lista de todos los niveles
+        allLevelsList.innerHTML = LEVELS_DATA.map(level => {
+            const isUnlocked = daysCompleted >= level.days;
+            const isCurrent = level.level === currentLevel.level;
+            const opacity = isUnlocked ? 1 : 0.5;
+            const borderColor = isCurrent ? level.color : 'var(--border)';
+            const borderWidth = isCurrent ? '2px' : '1px';
+
+            return `
+                <div style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--surface); border-radius:var(--radius); border:${borderWidth} solid ${borderColor}; opacity:${opacity}">
+                    <div style="font-size:1.5rem; width:40px; text-align:center">${level.icon}</div>
+                    <div style="flex:1">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px">
+                            <span style="font-weight:800; color:${isCurrent ? level.color : 'var(--heading)'}">
+                                Nivel ${level.level}
+                            </span>
+                            ${isCurrent ? '<span style="font-size:0.75rem; padding:2px 6px; background:' + level.color + '; color:white; border-radius:4px; font-weight:600"></span>' : ''}
+                        </div>
+                        <div style="font-size:0.9rem; color:var(--text); font-weight:600; margin-bottom:2px">
+                            ${level.name}
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--muted)">
+                            ${level.days} ${level.days === 1 ? 'día' : 'días'} completados
+                        </div>
+                    </div>
+                    <div style="width:24px; height:24px; border-radius:50%; background:${level.color}; display:flex; align-items:center; justify-content:center; flex-shrink:0">
+                        ${isUnlocked ? '✓' : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Interceptar save para verificar subida de nivel
+    // Esto debe hacerse después de que todas las funciones estén definidas
+    (function() {
+        const originalSaveFunction = save;
+        save = async function() {
+            await originalSaveFunction();
+            // Solo verificar nivel si las funciones están disponibles
+            if (typeof checkLevelUp === 'function') {
+                checkLevelUp();
+            }
+        };
+    })();
+
+    // Inicializar nivel al cargar (solo una vez)
+    if (typeof app !== 'undefined' && (!app.lastLevel || app.lastLevel === undefined)) {
+        if (typeof getCompletedDays === 'function' && typeof getCurrentLevel === 'function') {
+            try {
+                const daysCompleted = getCompletedDays();
+                const currentLevel = getCurrentLevel(daysCompleted);
+                app.lastLevel = currentLevel.level;
+            } catch (e) {
+                console.error('Error initializing level:', e);
+                app.lastLevel = 1;
+            }
+        }
     }
 
     function createLevelUpNotification(sessionName) {
@@ -4560,12 +4926,36 @@ document.addEventListener('DOMContentLoaded', () => {
         const monday = startOfWeek(addDays(new Date(), offset * 7));
         monday.setHours(0, 0, 0, 0);
 
-        // Corrige desplazamiento del primer día (Día 1 = lunes)
+        // Mapea las sesiones respetando sus fechas originales si existen
         const mapped = app.importBuffer.map((s, idx) => {
-            const sessionDate = new Date(monday);
-            sessionDate.setDate(monday.getDate() + idx); // día consecutivo
-            sessionDate.setHours(12, 0, 0, 0); // forzamos mediodía local para evitar redondeos tz
-            const dateISO = toLocalISO(sessionDate);
+            let sessionDate;
+            let dateISO;
+            
+            // Si la sesión tiene una fecha original, usarla
+            if (s.date) {
+                try {
+                    sessionDate = new Date(s.date);
+                    // Validar que la fecha sea válida
+                    if (isNaN(sessionDate.getTime())) {
+                        throw new Error('Invalid date');
+                    }
+                    sessionDate.setHours(12, 0, 0, 0);
+                    dateISO = toLocalISO(sessionDate);
+                } catch (e) {
+                    // Si la fecha no es válida, usar fallback
+                    sessionDate = new Date(monday);
+                    sessionDate.setDate(monday.getDate() + idx);
+                    sessionDate.setHours(12, 0, 0, 0);
+                    dateISO = toLocalISO(sessionDate);
+                }
+            } else {
+                // Si no tiene fecha, usar días consecutivos como fallback
+                sessionDate = new Date(monday);
+                sessionDate.setDate(monday.getDate() + idx);
+                sessionDate.setHours(12, 0, 0, 0);
+                dateISO = toLocalISO(sessionDate);
+            }
+            
             return normalizeSessionFromImport(s, dateISO);
         });
 
@@ -5054,6 +5444,10 @@ document.addEventListener('DOMContentLoaded', () => {
             copyLastWeekWorkout();
         });
 
+        $('#btnClearWeek').addEventListener('click', () => {
+            clearWeek();
+        });
+
         // Guardar sesión
         $('#saveSession').addEventListener('click', (ev) => {
             ev.preventDefault();
@@ -5089,10 +5483,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Confirmar eliminación
         $('#confirmDelete').addEventListener('click', (ev) => {
             ev.preventDefault();
-            const { type, id, sessionId, exId, setId, routineId, goalId } = app.deleteTarget;
+            const { type, id, sessionId, exId, setId, routineId, goalId, sessionIds } = app.deleteTarget;
 
             if (type === 'session') {
                 app.sessions = app.sessions.filter(s => s.id !== id);
+            } else if (type === 'week') {
+                // Eliminar todas las sesiones de la semana
+                if (sessionIds && Array.isArray(sessionIds)) {
+                    app.sessions = app.sessions.filter(s => !sessionIds.includes(s.id));
+                    save();
+                    refresh();
+                    $('#confirmDialog').close();
+                    toast(`Semana limpiada: ${sessionIds.length} sesión${sessionIds.length > 1 ? 'es eliminadas' : ' eliminada'}`, 'ok');
+                    return;
+                }
             } else if (type === 'exercise') {
                 const s = app.sessions.find(x => x.id === sessionId);
                 if (s) s.exercises = s.exercises.filter(e => e.id !== exId);
@@ -5598,296 +6002,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    /* =================== Authentication =================== */
-    let authSubscription = null;
-
-    // Validate email domain
-    function validateEmail(email) {
-        const allowedDomains = ['gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com'];
-        const emailDomain = email.split('@')[1]?.toLowerCase();
-        return allowedDomains.includes(emailDomain);
-    }
-
-    async function initAuth() {
-        if (typeof supabaseService === 'undefined') {
-            // Supabase not configured, show error
-            showAuthScreen();
-            const errorDiv = $('#authError');
-            if (errorDiv) {
-                errorDiv.textContent = 'Supabase no está configurado. Por favor configura las credenciales.';
-                errorDiv.style.display = 'block';
-            }
-            return false;
-        }
-
-        // Check for existing session
-        const session = await supabaseService.getSession();
-        if (session) {
-            // User is authenticated
-            hideAuthScreen();
-            showMainApp();
-            setupAuthUI(true);
-            await setupRealtimeSync();
-            return true;
-        } else {
-            // Show auth screen
-            showAuthScreen();
-            return false;
-        }
-    }
-
-    function showAuthScreen() {
-        const authScreen = $('#authScreen');
-        const mainApp = $('#mainApp');
-        if (authScreen) authScreen.style.display = 'flex';
-        if (mainApp) mainApp.style.display = 'none';
-    }
-
-    function hideAuthScreen() {
-        const authScreen = $('#authScreen');
-        if (authScreen) authScreen.style.display = 'none';
-    }
-
-    function showMainApp() {
-        const mainApp = $('#mainApp');
-        if (mainApp) mainApp.style.display = 'block';
-    }
-
-    function setupAuthUI(isAuthenticated) {
-        const authBtn = $('#authBtn');
-        if (authBtn) {
-            if (isAuthenticated) {
-                authBtn.textContent = 'Cerrar Sesión';
-                authBtn.onclick = handleSignOut;
-                authBtn.style.display = 'block';
-            } else {
-                authBtn.style.display = 'none';
-            }
-        }
-    }
-
-    function updateAuthForm(tab) {
-        const submitBtn = $('#authSubmit');
-        const signupFields = $('#signupFields');
-        const firstNameInput = $('#authFirstName');
-        const lastNameInput = $('#authLastName');
-
-        if (tab === 'signin') {
-            if (submitBtn) submitBtn.textContent = 'Iniciar Sesión';
-            if (signupFields) signupFields.style.display = 'none';
-            if (firstNameInput) firstNameInput.removeAttribute('required');
-            if (lastNameInput) lastNameInput.removeAttribute('required');
-        } else {
-            if (submitBtn) submitBtn.textContent = 'Registrarse';
-            if (signupFields) signupFields.style.display = 'block';
-            if (firstNameInput) firstNameInput.setAttribute('required', 'required');
-            if (lastNameInput) lastNameInput.setAttribute('required', 'required');
-        }
-    }
-
-    async function handleAuth(e) {
-        if (e) e.preventDefault();
-
-        if (typeof supabaseService === 'undefined') {
-            const errorDiv = $('#authError');
-            if (errorDiv) {
-                errorDiv.textContent = 'Supabase no está configurado';
-                errorDiv.style.display = 'block';
-            }
-            return;
-        }
-
-        const email = $('#authEmail')?.value.trim();
-        const password = $('#authPassword')?.value;
-        const firstName = $('#authFirstName')?.value.trim();
-        const lastName = $('#authLastName')?.value.trim();
-        const errorDiv = $('#authError');
-        const activeTab = $('.auth-tab-btn.active')?.dataset.tab || 'signin';
-
-        // Validate email domain
-        if (email && !validateEmail(email)) {
-            if (errorDiv) {
-                errorDiv.textContent = 'Solo se permiten correos de: @gmail.com, @outlook.com, @hotmail.com, @yahoo.com';
-                errorDiv.style.display = 'block';
-            }
-            return;
-        }
-
-        // Validate required fields
-        if (!email || !password) {
-            if (errorDiv) {
-                errorDiv.textContent = 'Por favor completa todos los campos';
-                errorDiv.style.display = 'block';
-            }
-            return;
-        }
-
-        // Validate signup fields
-        if (activeTab === 'signup') {
-            if (!firstName || !lastName) {
-                if (errorDiv) {
-                    errorDiv.textContent = 'Por favor completa nombre y apellidos';
-                    errorDiv.style.display = 'block';
-                }
-                return;
-            }
-        }
-
-        try {
-            let result;
-            if (activeTab === 'signin') {
-                result = await supabaseService.signIn(email, password);
-            } else {
-                result = await supabaseService.signUp(email, password, {
-                    firstName: firstName,
-                    lastName: lastName
-                });
-                if (result) {
-                    // Save user profile data
-                    if (result.user) {
-                        app.profile.firstName = firstName;
-                        app.profile.lastName = lastName;
-                        app.profile.email = email;
-                        await save();
-                    }
-                }
-            }
-
-            if (result) {
-                // Load user profile if signing in
-                if (activeTab === 'signin') {
-                    await load();
-                    // Try to get user metadata from Supabase
-                    const user = await supabaseService.getCurrentUser();
-                    if (user && user.user_metadata) {
-                        if (user.user_metadata.firstName) app.profile.firstName = user.user_metadata.firstName;
-                        if (user.user_metadata.lastName) app.profile.lastName = user.user_metadata.lastName;
-                        if (user.email) app.profile.email = user.email;
-                        await save();
-                    }
-                }
-
-                hideAuthScreen();
-                showMainApp();
-                setupAuthUI(true);
-                await setupRealtimeSync();
-                // Reload data from Supabase
-                await load();
-                // Initialize app if not already done
-                bindEvents();
-                render();
-                updateStreak();
-                updateWeeklyGoal();
-                checkAchievements();
-                toast('Sesión iniciada correctamente', 'ok');
-            }
-        } catch (error) {
-            console.error('Auth error:', error);
-            if (errorDiv) {
-                errorDiv.textContent = error.message || 'Error al autenticarse';
-                errorDiv.style.display = 'block';
-            }
-        }
-    }
-
-    async function handleSignOut() {
-        if (typeof supabaseService === 'undefined') return;
-
-        try {
-            await supabaseService.signOut();
-            if (authSubscription) {
-                authSubscription.unsubscribe();
-                authSubscription = null;
-            }
-            setupAuthUI(false);
-            // Show auth screen
-            showAuthScreen();
-            // Reset form
-            const authForm = $('#authForm');
-            if (authForm) authForm.reset();
-            const errorDiv = $('#authError');
-            if (errorDiv) errorDiv.style.display = 'none';
-            toast('Sesión cerrada', 'ok');
-        } catch (error) {
-            console.error('Sign out error:', error);
-            toast('Error al cerrar sesión', 'warn');
-        }
-    }
-
-    async function setupRealtimeSync() {
-        if (typeof supabaseService === 'undefined') return;
-        const isAvailable = await supabaseService.isAvailable();
-        if (!isAvailable) return;
-
-        // Subscribe to real-time changes
-        authSubscription = await supabaseService.subscribeToChanges(async (newData) => {
-            // Data changed on another device, reload
-            await load();
-            render();
-            toast('Datos actualizados', 'ok');
-        });
-    }
-
-    // Bind auth events
-    function bindAuthEvents() {
-        // Auth tabs
-        const authTabs = $$('.auth-tab-btn');
-        authTabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                authTabs.forEach(t => t.classList.remove('active'));
-                tab.classList.add('active');
-                updateAuthForm(tab.dataset.tab);
-                // Clear error message when switching tabs
-                const errorDiv = $('#authError');
-                if (errorDiv) errorDiv.style.display = 'none';
-            });
-        });
-
-        // Auth form
-        const authForm = $('#authForm');
-        if (authForm) {
-            authForm.addEventListener('submit', handleAuth);
-        }
-
-        // Real-time email validation
-        const emailInput = $('#authEmail');
-        if (emailInput) {
-            emailInput.addEventListener('blur', () => {
-                const email = emailInput.value.trim();
-                const errorDiv = $('#authError');
-                if (email && !validateEmail(email)) {
-                    if (errorDiv) {
-                        errorDiv.textContent = 'Solo se permiten correos de: @gmail.com, @outlook.com, @hotmail.com, @yahoo.com';
-                        errorDiv.style.display = 'block';
-                    }
-                } else if (errorDiv && errorDiv.textContent.includes('correos de')) {
-                    errorDiv.style.display = 'none';
-                }
-            });
-        }
-    }
-
     /* =================== Init =================== */
     (async function init() {
-        // Initialize authentication first
-        const isAuthenticated = await initAuth();
-        bindAuthEvents();
-
-        // Only load app data if authenticated
-        if (isAuthenticated) {
-            // Load data
-            await load();
-            bindEvents();
-            render();
-            // Initialize competitive mode on load
-            updateStreak();
-            updateWeeklyGoal();
-            checkAchievements();
-        } else {
-            // Just bind events for auth screen
-            // Don't load app data until authenticated
-        }
+        // Load data
+        await load();
+        bindEvents();
+        render();
+        // Initialize competitive mode on load
+        updateStreak();
+        updateWeeklyGoal();
+        checkAchievements();
     })();
+
 
     /* =================== Profile Handlers =================== */
     function handleProfilePhotoChange(e) {
@@ -6091,7 +6217,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p>${note.text}</p>
                     <div class="note-meta">
                         <span>${date}</span>
-                        <button class="btn btn--small js-delete-note" data-note-id="${note.id}" aria-label="Eliminar nota">Eliminar</button>
+                        <button class="note-delete-btn js-delete-note" data-note-id="${note.id}" aria-label="Eliminar nota" title="Eliminar nota">✕</button>
                     </div>
                 </div>
             `;
@@ -6119,6 +6245,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const removeBtn = $('#removePhoto');
         if (removeBtn) {
             removeBtn.style.display = app.profile.photo ? 'block' : 'none';
+        }
+
+        // Render level display
+        const levelDisplay = $('#profileLevelDisplay');
+        if (levelDisplay && typeof getCompletedDays === 'function' && typeof getCurrentLevel === 'function') {
+            const daysCompleted = getCompletedDays();
+            const currentLevel = getCurrentLevel(daysCompleted);
+            levelDisplay.innerHTML = `
+                <div style="display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap">
+                    <div style="font-size:2rem">${currentLevel.icon}</div>
+                    <div style="flex:1; min-width:200px">
+                        <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px">Nivel Actual</div>
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+                            <span style="font-size:1.25rem; font-weight:800; color:${currentLevel.color}">
+                                Nivel ${currentLevel.level}
+                            </span>
+                            <span style="font-size:1rem; font-weight:600; color:var(--heading)">
+                                ${currentLevel.name}
+                            </span>
+                        </div>
+                        <div style="font-size:0.8rem; color:var(--muted); margin-top:4px">
+                            ${daysCompleted} ${daysCompleted === 1 ? 'día' : 'días'} completados
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         const firstNameInput = $('#profileFirstName');
@@ -6174,14 +6326,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Render notes
         renderNotes();
-
-        // Render color swatches
-        if (typeof window.renderColorSwatches === 'function') {
-            window.renderColorSwatches();
-        }
-
-        // Render competitive mode
-        renderCompetitiveMode();
     }
 
     function handleBodyMeasurementsSave(e) {
@@ -6304,335 +6448,5 @@ document.addEventListener('DOMContentLoaded', () => {
         if (recommendedCaloriesDiv) recommendedCaloriesDiv.textContent = goalText;
     }
 
-    /* =================== Social Feature =================== */
-    async function loadSocialData() {
-        if (!window.supabaseCreateClient) return;
-        console.log('Loading social data, table:', TABLE_FRIEND_REQUESTS);
-
-        const user = await supabaseService.getCurrentUser();
-        if (!user) {
-            toast('Debes iniciar sesión para usar funciones sociales', 'warn');
-            return;
-        }
-
-        // 1. Load my profile (use local state for immediate sync)
-        const firstName = app.profile.firstName || '';
-        const lastName = app.profile.lastName || '';
-        const fullName = (firstName + ' ' + lastName).trim() || 'Usuario';
-
-        const socialName = $('#socialName');
-        const socialEmail = $('#socialEmail');
-        const socialAvatar = $('#socialAvatar');
-
-        if (socialName) socialName.textContent = fullName;
-        if (socialEmail) socialEmail.textContent = app.profile.email || user.email;
-        if (socialAvatar) socialAvatar.src = getCurrentAvatar();
-
-
-        // 2. Load Pending Requests
-        const { data: requests } = await supabase
-            .from(TABLE_FRIEND_REQUESTS)
-            .select('*, sender:profiles!sender_id(*)')
-            .eq('receiver_id', user.id)
-            .eq('status', 'pending');
-
-        const reqList = $('#pendingRequestsList');
-        reqList.innerHTML = '';
-        if (requests && requests.length > 0) {
-            requests.forEach(req => {
-                const div = document.createElement('div');
-                div.className = 'routine-created__item';
-                div.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:center">
-                        <div style="display:flex; align-items:center; gap:10px">
-                            <img src="${req.sender.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.sender.email}`}" style="width:40px; height:40px; border-radius:50%">
-                            <div>
-                                <div style="font-weight:600">${req.sender.first_name} ${req.sender.last_name}</div>
-                                <div style="font-size:0.8rem; color:var(--muted)">${req.sender.email}</div>
-                            </div>
-                        </div>
-                        <button class="btn btn--small js-accept-request" data-id="${req.id}">Aceptar</button>
-                    </div>
-                `;
-                reqList.appendChild(div);
-            });
-        } else {
-            reqList.innerHTML = '<div class="routine-empty">No tienes solicitudes pendientes.</div>';
-        }
-
-        // 3. Load Friends
-        // Simplified: fetch requests where status=accepted and I am sender OR receiver
-        const { data: friends1 } = await supabase
-            .from(TABLE_FRIEND_REQUESTS)
-            .select('*, friend:profiles!receiver_id(*)')
-            .eq('sender_id', user.id)
-            .eq('status', 'accepted');
-
-        const { data: friends2 } = await supabase
-            .from(TABLE_FRIEND_REQUESTS)
-            .select('*, friend:profiles!sender_id(*)')
-            .eq('receiver_id', user.id)
-            .eq('status', 'accepted');
-
-        const allFriends = [...(friends1 || []).map(r => r.friend), ...(friends2 || []).map(r => r.friend)];
-
-        const friendsList = $('#friendsList');
-        friendsList.innerHTML = '';
-        if (allFriends.length > 0) {
-            allFriends.forEach(f => {
-                const div = document.createElement('div');
-                div.className = 'routine-created__item';
-                div.style.cursor = 'pointer';
-                div.onclick = () => viewFriendStats(f.id);
-                div.innerHTML = `
-                    <div style="display:flex; align-items:center; gap:12px">
-                        <img src="${f.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.email}`}" style="width:40px; height:40px; border-radius:50%">
-                        <div>
-                            <div style="font-weight:600">${f.first_name} ${f.last_name}</div>
-                            <div style="font-size:0.8rem; color:var(--muted)">Ver estadísticas</div>
-                        </div>
-                    </div>
-                `;
-                friendsList.appendChild(div);
-            });
-        } else {
-            friendsList.innerHTML = '<div class="routine-empty">Aún no tienes amigos conectados.</div>';
-        }
-    }
-
-    async function sendFriendRequest() {
-        const email = $('#friendEmail').value.trim().toLowerCase();
-        if (!email) return;
-
-        const user = await supabaseService.getCurrentUser();
-        if (!user) return;
-
-        // Find user by email
-        const { data: targetUser, error } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .single();
-
-        if (error || !targetUser) {
-            toast('Usuario no encontrado', 'err');
-            return;
-        }
-
-        if (targetUser.id === user.id) {
-            toast('No puedes enviarte solicitud a ti mismo', 'warn');
-            return;
-        }
-
-        const { error: reqError } = await supabase
-            .from(TABLE_FRIEND_REQUESTS)
-            .insert({
-                sender_id: user.id,
-                receiver_id: targetUser.id
-            });
-
-        if (reqError) {
-            if (reqError.code === '23505') { // Unique violation
-                toast('Ya existe una solicitud o amistad', 'warn');
-            } else {
-                toast('Error al enviar solicitud', 'err');
-            }
-        } else {
-            toast('Solicitud enviada', 'ok');
-            $('#friendEmail').value = '';
-        }
-    }
-
-    async function viewFriendStats(friendId) {
-        // Fetch friend's profile
-        const { data: friend } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', friendId)
-            .single();
-
-        if (!friend) {
-            toast('No se pudo cargar el perfil del amigo', 'err');
-            return;
-        }
-
-        // Update friend profile header
-        $('#friendName').textContent = `${friend.first_name} ${friend.last_name}`;
-        $('#friendAvatar').src = friend.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.email}`;
-        $('#friendLastActive').textContent = `Miembro desde ${new Date(friend.updated_at || Date.now()).toLocaleDateString()}`;
-
-        // Fetch friend's user_data to get goals, achievements, sessions, etc.
-        const { data: friendData } = await supabase
-            .from('user_data')
-            .select('data')
-            .eq('user_id', friendId)
-            .maybeSingle();
-
-        const friendUserData = friendData?.data || {};
-
-        // Calculate stats from friend's sessions
-        const friendSessions = friendUserData.sessions || [];
-        const currentMonth = new Date().getMonth();
-        const currentYear = new Date().getFullYear();
-        const monthlySessions = friendSessions.filter(s => {
-            if (!s.date) return false;
-            const sessionDate = new Date(s.date);
-            return sessionDate.getMonth() === currentMonth && sessionDate.getFullYear() === currentYear;
-        });
-
-        // Calculate monthly volume
-        let monthlyVolume = 0;
-        monthlySessions.forEach(session => {
-            (session.exercises || []).forEach(ex => {
-                (ex.sets || []).forEach(set => {
-                    const kg = parseFloat(set.kg) || 0;
-                    const reps = parseReps(set.reps);
-                    monthlyVolume += kg * reps;
-                });
-            });
-        });
-
-        // Get streak
-        const streak = friendUserData.streak || { current: 0, lastDate: null };
-
-        // Update stats display
-        $('#friendSessions').textContent = monthlySessions.length;
-        $('#friendVolume').textContent = Math.round(monthlyVolume) + ' kg';
-        $('#friendStreak').textContent = streak.current + ' días';
-
-        // Display recent sessions
-        const recentSessions = friendSessions
-            .filter(s => s.completed)
-            .sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
-            .slice(0, 5);
-
-        const recentSessionsContainer = $('#friendRecentSessions');
-        if (recentSessions.length === 0) {
-            recentSessionsContainer.innerHTML = '<div class="routine-empty">No hay entrenamientos recientes.</div>';
-        } else {
-            recentSessionsContainer.innerHTML = recentSessions.map(session => {
-                const date = session.date ? new Date(session.date).toLocaleDateString('es-ES', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                }) : 'Sin fecha';
-                return `
-                    <div class="routine-created__item">
-                        <div style="display:flex; justify-content:space-between; align-items:center">
-                            <div>
-                                <div style="font-weight:600">${session.name || 'Sin nombre'}</div>
-                                <div style="font-size:0.8rem; color:var(--muted)">${date}</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Display friend's goals
-        const friendGoals = friendUserData.goals || [];
-        const goalsContainer = $('#friendGoalsList');
-        if (friendGoals.length === 0) {
-            goalsContainer.innerHTML = '<div class="routine-empty">Aún no tiene objetivos.</div>';
-        } else {
-            goalsContainer.innerHTML = friendGoals.map(goal => {
-                const progressPercent = Math.min(100, goal.progress || 0);
-                const progressBar = goal.completed ? '100%' : `${progressPercent}%`;
-                const goalClass = goal.completed ? 'completed' : '';
-                
-                let goalDescription = '';
-                switch (goal.type) {
-                    case 'weight':
-                        goalDescription = `Aumentar peso a ${goal.target} kg${goal.exerciseName ? ` (${goal.exerciseName})` : ''}`;
-                        break;
-                    case 'loseWeight':
-                        goalDescription = `Perder ${goal.target} kg`;
-                        break;
-                    case 'gainWeight':
-                        goalDescription = `Ganar ${goal.target} kg`;
-                        break;
-                    case 'volume':
-                        goalDescription = `Aumentar volumen total a ${goal.target} kg`;
-                        break;
-                    case 'repsWeight':
-                        goalDescription = `${goal.repsTarget} reps con ${goal.target} kg${goal.exerciseName ? ` (${goal.exerciseName})` : ''}`;
-                        break;
-                    case 'sessions':
-                        goalDescription = `Completar ${goal.target} sesiones`;
-                        break;
-                    case 'streak':
-                        goalDescription = `Racha de ${goal.target} días`;
-                        break;
-                    case 'exercise':
-                        goalDescription = `Mejorar ${goal.exerciseName || 'ejercicio'}`;
-                        break;
-                    default:
-                        goalDescription = goal.name || 'Objetivo';
-                }
-
-                return `
-                    <div class="goal-item ${goalClass}" style="opacity: ${goal.completed ? '0.6' : '1'}">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-                            <div style="font-weight:600">${goal.name || goalDescription}</div>
-                            <div style="font-size:0.85rem; color:var(--muted)">${Math.round(progressPercent)}%</div>
-                        </div>
-                        <div class="goal-progress">
-                            <div class="goal-progress-bar" style="width:${progressBar}"></div>
-                        </div>
-                        ${goal.deadline ? `<div style="font-size:0.75rem; color:var(--muted); margin-top:4px">Fecha límite: ${new Date(goal.deadline).toLocaleDateString('es-ES')}</div>` : ''}
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // Display friend's achievements
-        const friendAchievements = friendUserData.achievements || [];
-        const achievementsContainer = $('#friendAchievementsList');
-        if (friendAchievements.length === 0) {
-            achievementsContainer.innerHTML = '<div class="routine-empty">Aún no tiene logros.</div>';
-        } else {
-            const sortedAchievements = [...friendAchievements].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
-            achievementsContainer.innerHTML = sortedAchievements.map(ach => {
-                const date = ach.date ? new Date(ach.date).toLocaleDateString('es-ES', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                }) : '';
-                return `
-                    <div class="achievement-item" style="display:flex; align-items:center; gap:12px; padding:12px; background:var(--surface-2); border-radius:8px; margin-bottom:8px">
-                        <div style="font-size:1.5rem">${ach.icon || '🏆'}</div>
-                        <div style="flex:1">
-                            <div style="font-weight:600">${ach.title || 'Logro'}</div>
-                            ${date ? `<div style="font-size:0.75rem; color:var(--muted)">${date}</div>` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        $('#friendStatsDialog').showModal();
-    }
-
-    // Bind Social Events
-    document.addEventListener('click', async (e) => {
-        if (e.target.id === 'btnSendRequest') {
-            e.preventDefault();
-            await sendFriendRequest();
-        }
-
-        if (e.target.classList.contains('js-accept-request')) {
-            e.preventDefault();
-            const id = e.target.dataset.id;
-            const { error } = await supabase
-                .from(TABLE_FRIEND_REQUESTS)
-                .update({ status: 'accepted' })
-                .eq('id', id);
-
-            if (!error) {
-                toast('Solicitud aceptada', 'ok');
-                loadSocialData();
-            }
-        }
-    });
 
 });
