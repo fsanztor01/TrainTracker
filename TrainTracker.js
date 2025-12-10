@@ -1303,6 +1303,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressCache = new Map();
     const getCacheKey = (sessionId, exId, setId) => `${sessionId}-${exId}-${setId}`;
 
+    // Helper to get sorted history for an exercise (Cached)
+    function getExerciseHistory(exerciseName) {
+        if (!app.exerciseHistoryCache) app.exerciseHistoryCache = {};
+        if (app.exerciseHistoryCache[exerciseName]) return app.exerciseHistoryCache[exerciseName];
+
+        const history = app.sessions
+            .filter(s => s.exercises && s.exercises.some(e => e.name === exerciseName))
+            .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+
+        app.exerciseHistoryCache[exerciseName] = history;
+        return history;
+    }
+
     function progressText(currentSession, currentEx, currentSet) {
         // Check cache first
         const cacheKey = getCacheKey(currentSession.id, currentEx.id, currentSet.id);
@@ -1310,25 +1323,52 @@ document.addEventListener('DOMContentLoaded', () => {
             return progressCache.get(cacheKey);
         }
 
-        // Optimized: use parsed dates and early exit
-        const currDate = parseLocalDate(currentSession.date);
-        const currentDateNum = currDate.getTime();
+        const history = getExerciseHistory(currentEx.name);
+        if (!history || history.length === 0) {
+            const result = '<span class="progress--same">Primera sesión</span>';
+            progressCache.set(cacheKey, result);
+            return result;
+        }
 
-        // Find previous sessions more efficiently - only check sessions before current date
-        // Iterate backwards through sessions (they're usually sorted by date)
-        for (let i = app.sessions.length - 1; i >= 0; i--) {
-            const s = app.sessions[i];
-            const sDate = parseLocalDate(s.date);
-            if (sDate.getTime() >= currentDateNum) continue;
+        // Find current session index
+        // Since history is sorted by date, we can find where currentSession fits
+        const currentSessionDate = parseLocalDate(currentSession.date).getTime();
 
-            // Found a previous session, now find the exercise
+        // Find the index of the current session in the history
+        // We can't rely on ID because the current session might be new/unsaved or just being edited
+        // So we look for the session with the same ID or the first one with >= date
+        let currentIndex = -1;
+        for (let i = 0; i < history.length; i++) {
+            if (history[i].id === currentSession.id) {
+                currentIndex = i;
+                break;
+            }
+        }
+
+        // If not found by ID (shouldn't happen if it's in app.sessions), fallback to date
+        if (currentIndex === -1) {
+            for (let i = 0; i < history.length; i++) {
+                if (parseLocalDate(history[i].date).getTime() >= currentSessionDate) {
+                    currentIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // If still -1, it means it's newer than all history (should be appended)
+        if (currentIndex === -1) currentIndex = history.length;
+
+        // Look backwards from currentIndex - 1
+        for (let i = currentIndex - 1; i >= 0; i--) {
+            const s = history[i];
+            // Skip if it's the same session (just in case)
+            if (s.id === currentSession.id) continue;
+
             const ex = (s.exercises || []).find(e => e.name === currentEx.name);
             if (!ex) continue;
 
-            // Find the set with matching set number
             const prevSet = (ex.sets || []).find(st => st.setNumber === currentSet.setNumber);
             if (prevSet && (prevSet.kg || prevSet.reps)) {
-                // Found the most recent previous set, calculate and cache
                 const [txt, cls] = compareSets(prevSet, currentSet, currentSet.setNumber);
                 const result = `<span class="${cls}">${txt}</span>`;
                 progressCache.set(cacheKey, result);
@@ -1336,14 +1376,16 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // No previous set found
         const result = '<span class="progress--same">Primera sesión</span>';
         progressCache.set(cacheKey, result);
         return result;
     }
 
     // Clear progress cache when sessions change
-    const clearProgressCache = () => progressCache.clear();
+    const clearProgressCache = () => {
+        progressCache.clear();
+        app.exerciseHistoryCache = {};
+    };
     function compareSets(prev, curr, setNumber) {
         const pk = parseFloat(prev.kg) || 0;
         const ck = parseFloat(curr.kg) || 0;
@@ -1550,6 +1592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         nameEl.textContent = ex.name;
 
         // Make name editable on click (inline editing with save/cancel)
+        // Note: Keeping this inline for now as it's complex, but could be delegated later
         let isEditing = false;
         nameEl.style.cursor = 'pointer';
         nameEl.title = 'Clic para editar';
@@ -1712,13 +1755,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setButtonDisabled(upBtn, currentIndex === 0);
                 setButtonDisabled(downBtn, currentIndex === exerciseCount - 1);
 
-                const handleMove = (direction) => (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    moveExercise(session.id, ex.id, direction);
-                };
-                upBtn.addEventListener('click', handleMove('up'));
-                downBtn.addEventListener('click', handleMove('down'));
+                // Event listeners removed - handled by delegation in bindEvents
 
                 buttonsContainer.insertBefore(upBtn, buttonsContainer.firstChild);
                 buttonsContainer.insertBefore(downBtn, buttonsContainer.firstChild);
@@ -1736,17 +1773,35 @@ document.addEventListener('DOMContentLoaded', () => {
             noteBtn.setAttribute('aria-label', hasNote ? 'Editar nota del ejercicio' : 'Añadir nota del ejercicio');
             noteBtn.dataset.sessionId = session.id;
             noteBtn.dataset.exId = ex.id;
-            noteBtn.addEventListener('click', () => openExerciseNoteDialog(session.id, ex.id, ex.name));
+            // Event listener removed - handled by delegation
             headEl.appendChild(noteBtn);
         }
 
         const mobileContainer = block.querySelector('.sets-container');
         const desktopTable = block.querySelector('.sets');
         const sets = ex.sets || [];
-        sets.forEach(set => {
-            mobileContainer.appendChild(renderSetCard(session, ex, set));
-            desktopTable.appendChild(renderSet(session, ex, set));
-        });
+
+        // OPTIMIZATION: Only render the view that matches the current viewport
+        // This prevents creating double DOM nodes for every set
+        const isDesktop = window.matchMedia('(min-width: 768px)').matches;
+
+        if (isDesktop) {
+            // Hide mobile container to be safe (though it should be empty)
+            mobileContainer.style.display = 'none';
+            desktopTable.parentElement.parentElement.style.display = ''; // Ensure table container is visible
+
+            sets.forEach(set => {
+                desktopTable.appendChild(renderSet(session, ex, set));
+            });
+        } else {
+            // Hide desktop container
+            desktopTable.parentElement.parentElement.style.display = 'none';
+            mobileContainer.style.display = '';
+
+            sets.forEach(set => {
+                mobileContainer.appendChild(renderSetCard(session, ex, set));
+            });
+        }
 
         const note = getExerciseNote(session.id, ex.id);
         if (note) {
@@ -1760,11 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button class="exercise-note-delete" data-session-id="${session.id}" data-ex-id="${ex.id}" aria-label="Eliminar nota">🗑️</button>
                 </div>
             `;
-            noteDisplay.querySelector('.exercise-note-edit').addEventListener('click', () => openExerciseNoteDialog(session.id, ex.id, ex.name));
-            noteDisplay.querySelector('.exercise-note-delete').addEventListener('click', () => {
-                saveExerciseNote(session.id, ex.id, '');
-                refresh({ preserveTab: true });
-            });
+            // Event listeners removed - handled by delegation
             block.appendChild(noteDisplay);
         }
 
@@ -3402,50 +3453,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
 
-    function createLevelUpConfetti(color, stage) {
-        const colors = [color];
-        // Add complementary colors based on stage
-        if (stage === 'human') colors.push('#7ED957', '#4CAF50');
-        else if (stage === 'superior') colors.push('#42A5F5', '#1E88E5');
-        else if (stage === 'superhuman') colors.push('#FFC74D', '#FFB300');
-        else if (stage === 'divine') colors.push('#AB47BC', '#8E24AA');
-        else if (stage === 'abyssal') colors.push('#E53935', '#B71C1C');
-        else colors.push('#5ea9ff', '#0080e9');
-
-        const particleCount = 100;
-        const container = document.createElement('div');
-        container.className = 'level-up-confetti-container';
-        container.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10000;';
-
-        document.body.appendChild(container);
-
-        for (let i = 0; i < particleCount; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'level-up-confetti-particle';
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-            particle.style.cssText = `
-                position: absolute;
-                width: ${Math.random() * 8 + 4}px;
-                height: ${Math.random() * 8 + 4}px;
-                background: ${randomColor};
-                left: ${Math.random() * 100}%;
-                top: -10px;
-                border-radius: ${Math.random() > 0.5 ? '50%' : '0'};
-                opacity: ${Math.random() * 0.5 + 0.5};
-                animation: levelUpConfettiFall ${Math.random() * 2 + 2}s linear forwards;
-                animation-delay: ${Math.random() * 0.5}s;
-            `;
-            container.appendChild(particle);
-        }
-
-        // Remove container after animation
-        setTimeout(() => {
-            if (container.parentNode) {
-                container.remove();
-            }
-        }, 4000);
-    }
-
     /* =================== LEVEL SYSTEM =================== */
 
     // Definición de los 50 niveles
@@ -3806,22 +3813,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const messages = MOTIVATIONAL_MESSAGES[currentLevel.stage] || MOTIVATIONAL_MESSAGES.human;
             const randomMessage = messages[Math.floor(Math.random() * messages.length)];
 
+            // Set flag to suppress other animations
+            app.justLeveledUp = true;
+
             // Trigger level up animation
-            triggerLevelUpAnimation(currentLevel, oldLevel);
-
-            // Crear notificación especial
-            toast(`🎉 ¡Nivel ${currentLevel.level} alcanzado! ${currentLevel.name}`, 'ok');
-
-            // Mostrar mensaje motivador después de un breve delay
-            setTimeout(() => {
-                toast(randomMessage, 'ok');
-            }, 1500);
-
-            // Efecto visual (confetti si está disponible)
-            if (typeof createConfetti === 'function') {
-                setTimeout(() => {
-                    createConfetti();
-                }, 500);
+            if (typeof showLevelUpModal === 'function') {
+                showLevelUpModal(currentLevel, oldLevel);
+            } else {
+                // Fallback if modal not ready
+                toast(`🎉 ¡Nivel ${currentLevel.level} alcanzado! ${currentLevel.name}`, 'ok');
+                setTimeout(() => toast(randomMessage, 'ok'), 1500);
             }
         }
     }
@@ -4208,7 +4209,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (s.completed && !wasCompleted) {
             // Small delay to ensure DOM is updated
             setTimeout(() => {
-                triggerFiestaCelebration(id);
+                // Only trigger fiesta if we didn't just level up (level up has its own celebration)
+                if (!app.justLeveledUp) {
+                    triggerFiestaCelebration(id);
+                }
             }, 100);
         }
     }
@@ -6045,8 +6049,64 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
     }
 
+    /* =================== Level Up Animation =================== */
+    function showLevelUpModal(level, oldLevel) {
+        const dialog = $('#levelUpDialog');
+        const medalImg = $('#levelUpMedal');
+        const title = $('#levelUpTitle');
+        const name = $('#levelUpName');
+        const phrase = $('#levelUpPhrase');
+        const btn = $('#levelUpBtn');
+        const canvas = $('#confettiCanvas');
+
+        if (!dialog || !medalImg || !title || !name || !phrase || !btn) return;
+
+        // Set content
+        title.textContent = `¡NIVEL ${level.level} ALCANZADO!`;
+        name.textContent = level.name;
+
+        // Get medal image
+        const medalSrc = getMedalImage(level);
+        medalImg.src = medalSrc || 'Level1.png'; // Fallback
+
+        // Get motivational phrase
+        const messages = MOTIVATIONAL_MESSAGES[level.stage] || MOTIVATIONAL_MESSAGES.human;
+        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+        phrase.textContent = `"${randomMessage}"`;
+
+        // Show dialog
+        dialog.showModal();
+        document.body.classList.add('level-up-active');
+
+        // Trigger confetti
+        if (typeof createConfetti === 'function') {
+            createConfetti();
+            // More confetti bursts
+            setTimeout(() => createConfetti(), 500);
+            setTimeout(() => createConfetti(), 1000);
+            setTimeout(() => createConfetti(), 1800);
+        }
+
+        // Play sound if available (optional)
+        // const audio = new Audio('levelup.mp3');
+        // audio.play().catch(e => console.log('Audio play failed', e));
+    }
+
     /* =================== Eventos =================== */
     function bindEvents() {
+        // Level Up Dialog
+        const levelUpBtn = $('#levelUpBtn');
+        if (levelUpBtn) {
+            levelUpBtn.addEventListener('click', () => {
+                const dialog = $('#levelUpDialog');
+                dialog.close();
+                document.body.classList.remove('level-up-active');
+
+                // Reset flag
+                app.justLeveledUp = false;
+            });
+        }
+
         setupTabs();
 
         // Manual de Usuario
@@ -6410,6 +6470,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return;
             }
+
+            // Exercise Reorder Delegation
+            if (e.target.closest('.exercise-reorder-btn')) {
+                const btn = e.target.closest('.exercise-reorder-btn');
+                const direction = btn.dataset.direction;
+                moveExercise(sessionId, exId, direction);
+                return;
+            }
+
+            // Note Button Delegation
+            if (e.target.closest('.exercise-note-btn')) {
+                const btn = e.target.closest('.exercise-note-btn');
+                // Need exercise name for dialog
+                const s = app.sessions.find(x => x.id === sessionId);
+                if (s) {
+                    const ex = s.exercises.find(x => x.id === exId);
+                    if (ex) {
+                        openExerciseNoteDialog(sessionId, exId, ex.name);
+                    }
+                }
+                return;
+            }
+
+            // Note Edit/Delete Delegation
+            if (e.target.closest('.exercise-note-edit')) {
+                const s = app.sessions.find(x => x.id === sessionId);
+                if (s) {
+                    const ex = s.exercises.find(x => x.id === exId);
+                    if (ex) {
+                        openExerciseNoteDialog(sessionId, exId, ex.name);
+                    }
+                }
+                return;
+            }
+
+            if (e.target.closest('.exercise-note-delete')) {
+                saveExerciseNote(sessionId, exId, '');
+                refresh({ preserveTab: true });
+                return;
+            }
         });
 
         // Use 'input' event for real-time updates while typing
@@ -6766,6 +6866,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // Re-render sessions on window resize (debounced) to handle responsive set rendering
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                const activePanel = document.querySelector('.panel[aria-hidden="false"]');
+                if (activePanel && activePanel.id === 'panel-diary') {
+                    renderSessions();
+                }
+            }, 200);
+        });
+
     }
 
     /* =================== Refresh =================== */
@@ -6798,6 +6910,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function refresh({ preserveTab } = {}) {
+        // Clear caches
+        clearDomCache();
+        if (typeof clearProgressCache === 'function') clearProgressCache();
+        app.exerciseHistoryCache = {}; // Clear history cache
+
         render();
         const statsVisible = $('#panel-stats').getAttribute('aria-hidden') === 'false';
         if (statsVisible || !preserveTab) {
@@ -7258,3 +7375,72 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 });
+/* =================== Confetti Effect =================== */
+function createConfetti() {
+    const canvas = document.getElementById('confettiCanvas');
+    if (!canvas) {
+        const c = document.createElement('canvas');
+        c.id = 'confettiCanvas';
+        document.body.appendChild(c);
+        return createConfetti();
+    }
+
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles = [];
+    const particleCount = 150;
+    const colors = ['#FFD700', '#FFA500', '#FF4500', '#00BFFF', '#32CD32', '#FF69B4'];
+
+    for (let i = 0; i < particleCount; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height - canvas.height,
+            w: Math.random() * 10 + 5,
+            h: Math.random() * 10 + 5,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            speedY: Math.random() * 3 + 2,
+            speedX: Math.random() * 2 - 1,
+            rotation: Math.random() * 360,
+            rotationSpeed: Math.random() * 10 - 5
+        });
+    }
+
+    let animationId;
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let activeParticles = 0;
+        particles.forEach(p => {
+            p.y += p.speedY;
+            p.x += p.speedX;
+            p.rotation += p.rotationSpeed;
+
+            if (p.y < canvas.height) {
+                activeParticles++;
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.rotation * Math.PI / 180);
+                ctx.fillStyle = p.color;
+                ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+            }
+        });
+
+        if (activeParticles > 0) {
+            animationId = requestAnimationFrame(animate);
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+
+    animate();
+
+    // Resize handler
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }, { once: true });
+}
+

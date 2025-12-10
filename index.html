@@ -69,7 +69,9 @@
                 <article class="summary card pop" aria-labelledby="summaryTitle">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
                         <h2 class="summary__title" id="summaryTitle" style="margin-bottom:0">Resumen semanal</h2>
-                        <button class="btn btn--ghost btn--danger btn--kpi-style" id="btnClearWeek" style="font-size:0.75rem; padding:4px 8px; min-width:auto" aria-label="Limpiar semana"><span style="color:var(--danger, #ff4444)">✕</span> Limpiar semana</button>
+                        <button class="btn btn--ghost btn--danger btn--kpi-style" id="btnClearWeek"
+                            style="font-size:0.75rem; padding:4px 8px; min-width:auto" aria-label="Limpiar semana"><span
+                                style="color:var(--danger, #ff4444)">✕</span> Limpiar semana</button>
                     </div>
                     <div class="summary__grid">
                         <div class="kpi">
@@ -151,7 +153,8 @@
                 <article class="card pop" style="padding:12px; margin-top:10px; margin-bottom:10px">
                     <h3 class="summary__title" style="margin-bottom:10px">Gestión de Ciclos</h3>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-                        <button class="btn btn--secondary" id="archiveCycleBtn" type="button">📦 Archivar Ciclo Actual</button>
+                        <button class="btn btn--secondary" id="archiveCycleBtn" type="button">📦 Archivar Ciclo
+                            Actual</button>
                         <div id="archivedCyclesList" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
                     </div>
                 </article>
@@ -217,11 +220,15 @@
                                             <option value="thumbs">Thumbs</option>
                                         </select>
                                     </div>
-                                    <button type="button" class="btn btn--ghost" id="generateAvatar" style="white-space:nowrap">Generar nuevo avatar</button>
+                                    <button type="button" class="btn btn--ghost" id="generateAvatar"
+                                        style="white-space:nowrap">Generar nuevo avatar</button>
                                 </div>
                                 <label for="profilePhoto" style="width:100%">
-                                    <input id="profilePhoto" type="file" accept="image/*" class="input" style="display:none" />
-                                    <button type="button" class="btn btn--ghost" style="width:100%" onclick="document.getElementById('profilePhoto').click()">Subir foto propia</button>
+                                    <input id="profilePhoto" type="file" accept="image/*" class="input"
+                                        style="display:none" />
+                                    <button type="button" class="btn btn--ghost" style="width:100%"
+                                        onclick="document.getElementById('profilePhoto').click()">Subir foto
+                                        propia</button>
                                 </label>
                                 <button type="button" class="btn btn--ghost btn--danger" id="removePhoto"
                                     style="display:none">Eliminar foto</button>
@@ -267,7 +274,8 @@
 
                 <article class="card pop" style="padding:16px; margin-top:12px">
                     <h3 class="summary__title" style="margin-bottom:16px">Medidas Corporales</h3>
-                    <div class="body-measurements-form" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:16px">
+                    <div class="body-measurements-form"
+                        style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:16px">
                         <div class="field">
                             <label class="label" for="measurementArms">Brazos (cm)</label>
                             <input id="measurementArms" class="input" type="number" inputmode="decimal" min="0"
@@ -298,7 +306,8 @@
                             <input id="measurementCalves" class="input" type="number" inputmode="decimal" min="0"
                                 step="0.1" placeholder="Ej. 38" />
                         </div>
-                        <button class="btn" id="saveBodyMeasurements" type="button" style="grid-column: 1 / -1;">Guardar medidas</button>
+                        <button class="btn" id="saveBodyMeasurements" type="button" style="grid-column: 1 / -1;">Guardar
+                            medidas</button>
                     </div>
                     <div class="body-measurements-history">
                         <h4 class="summary__title" style="margin-bottom:8px; font-size:1rem">Historial de medidas</h4>
@@ -364,7 +373,8 @@
                                 <option value="gain">Ganar masa muscular</option>
                             </select>
                         </div>
-                        <button class="btn" id="calculateBMR" type="button" style="grid-column: 1 / -1;">Calcular</button>
+                        <button class="btn" id="calculateBMR" type="button"
+                            style="grid-column: 1 / -1;">Calcular</button>
                     </div>
                     <div id="bmrResults"
                         style="margin-top:20px; padding:16px; background:var(--bg-secondary); border-radius:8px; display:none">
@@ -513,7 +523,7 @@
             <section class="panel" id="panel-levels" role="tabpanel" aria-labelledby="tab-levels" aria-hidden="true">
                 <article class="card pop" style="padding:16px">
                     <h3 class="summary__title" style="margin-bottom:16px">Tu Progreso</h3>
-                    
+
                     <div id="currentLevelDisplay" style="text-align:center; margin-bottom:24px">
                         <!-- Se renderizará dinámicamente -->
                     </div>
@@ -522,12 +532,14 @@
                         <!-- Barra de progreso -->
                     </div>
 
-                    <div id="levelStats" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:24px">
+                    <div id="levelStats"
+                        style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:24px">
                         <!-- Estadísticas -->
                     </div>
 
                     <div style="margin-top:16px">
-                        <h3 class="summary__title" style="margin-bottom:12px; display:flex; align-items:center; gap:8px">
+                        <h3 class="summary__title"
+                            style="margin-bottom:12px; display:flex; align-items:center; gap:8px">
                             <span>🏅</span>
                             <span>Mis medallas</span>
                         </h3>
@@ -573,8 +585,11 @@
                         <label class="label" for="fileInput">Archivo JSON</label>
                         <input id="fileInput" type="file" accept="application/json,.json" class="input"
                             aria-describedby="fileHelp" style="display:none" />
-                        <button type="button" class="btn btn--ghost" onclick="document.getElementById('fileInput').click()" style="width:100%">Seleccionar archivo</button>
-                        <div id="fileHelp" style="color:var(--muted); font-size:.9rem; margin-top:8px">Se valida el contenido antes de
+                        <button type="button" class="btn btn--ghost"
+                            onclick="document.getElementById('fileInput').click()" style="width:100%">Seleccionar
+                            archivo</button>
+                        <div id="fileHelp" style="color:var(--muted); font-size:.9rem; margin-top:8px">Se valida el
+                            contenido antes de
                             integrarlo.</div>
                     </div>
                     <div id="importAlert" class="toast toast--err hidden" role="alert" aria-live="assertive"></div>
@@ -731,6 +746,20 @@
                     <button class="btn btn--secondary" id="saveExerciseNote" value="default">Guardar</button>
                 </div>
             </form>
+        </dialog>
+
+        <!-- LEVEL UP DIALOG -->
+        <dialog id="levelUpDialog" aria-labelledby="levelUpTitle" aria-modal="true">
+            <div class="level-up-container">
+                <div class="level-up-glow"></div>
+                <div class="level-up-medal-container">
+                    <img id="levelUpMedal" class="level-up-medal" src="" alt="Medalla de nivel" />
+                </div>
+                <div class="level-up-title" id="levelUpTitle">¡Nivel Alcanzado!</div>
+                <div class="level-up-subtitle" id="levelUpName">Nombre del Nivel</div>
+                <div class="level-up-phrase" id="levelUpPhrase">"Frase motivadora aquí"</div>
+                <button class="level-up-btn" id="levelUpBtn">¡CONTINUAR!</button>
+            </div>
         </dialog>
 
         <dialog id="manualDialog" aria-labelledby="manualTitle" aria-modal="true">
