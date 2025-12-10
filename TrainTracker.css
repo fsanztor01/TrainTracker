@@ -1308,6 +1308,15 @@ header::after {
     transform: translateY(-2px);
 }
 
+/* Performance Optimization */
+.card,
+.day-panel {
+    content-visibility: auto;
+    contain-intrinsic-size: 100px 500px;
+    /* Estimate size */
+    will-change: transform, opacity;
+}
+
 [data-theme="light"] .card {
     background: #FFFFFF;
     border: 1px solid #E4E4E7;
