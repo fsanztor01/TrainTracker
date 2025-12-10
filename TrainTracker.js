@@ -3817,8 +3817,8 @@ document.addEventListener('DOMContentLoaded', () => {
             app.justLeveledUp = true;
 
             // Trigger level up animation
-            if (typeof showLevelUpModal === 'function') {
-                showLevelUpModal(currentLevel, oldLevel);
+            if (typeof showLevelUpAnimation === 'function') {
+                showLevelUpAnimation(currentLevel);
             } else {
                 // Fallback if modal not ready
                 toast(`🎉 ¡Nivel ${currentLevel.level} alcanzado! ${currentLevel.name}`, 'ok');
@@ -6050,14 +6050,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =================== Level Up Animation =================== */
-    function showLevelUpModal(level, oldLevel) {
+    function showLevelUpAnimation(level) {
         const dialog = $('#levelUpDialog');
         const medalImg = $('#levelUpMedal');
         const title = $('#levelUpTitle');
         const name = $('#levelUpName');
         const phrase = $('#levelUpPhrase');
         const btn = $('#levelUpBtn');
-        const canvas = $('#confettiCanvas');
+
 
         if (!dialog || !medalImg || !title || !name || !phrase || !btn) return;
 
@@ -6077,15 +6077,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show dialog
         dialog.showModal();
         document.body.classList.add('level-up-active');
-
-        // Trigger confetti
-        if (typeof createConfetti === 'function') {
-            createConfetti();
-            // More confetti bursts
-            setTimeout(() => createConfetti(), 500);
-            setTimeout(() => createConfetti(), 1000);
-            setTimeout(() => createConfetti(), 1800);
-        }
 
         // Play sound if available (optional)
         // const audio = new Audio('levelup.mp3');
