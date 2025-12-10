@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     };
     const $$ = (s, c = document) => [...c.querySelectorAll(s)];
-    
+
     // Clear cache when DOM changes significantly
     const clearDomCache = () => {
         domCache.clear();
@@ -468,47 +468,47 @@ document.addEventListener('DOMContentLoaded', () => {
             updateRoutineExerciseReorderButtons(dayEl);
         }
     }
-    
+
     function updateRoutineExerciseReorderButtons(dayEl) {
         const exercisesContainer = dayEl.querySelector('.routine-exercises');
         if (!exercisesContainer) return;
-        
+
         const exerciseElements = [...exercisesContainer.querySelectorAll('.routine-exercise')];
         const exerciseCount = exerciseElements.length;
-        
+
         exerciseElements.forEach((exEl, index) => {
             const headEl = exEl.querySelector('.routine-exercise__head');
             if (!headEl) return;
-            
+
             // Find the buttons container (the div that contains + Set and X buttons)
             let buttonsContainer = headEl.querySelector('div:last-child');
             if (!buttonsContainer) {
                 buttonsContainer = document.createElement('div');
                 headEl.appendChild(buttonsContainer);
             }
-            
+
             // Remove existing reorder buttons
             const existingButtons = buttonsContainer.querySelectorAll('.routine-exercise-reorder-btn');
             existingButtons.forEach(btn => btn.remove());
-            
+
             // Add buttons if there are 2+ exercises
             if (exerciseCount >= 2) {
                 buttonsContainer.style.display = 'flex';
                 buttonsContainer.style.alignItems = 'center';
                 buttonsContainer.style.gap = '6px';
-                
+
                 const upBtn = document.createElement('button');
                 upBtn.className = 'btn btn--ghost btn--small routine-exercise-reorder-btn routine-exercise-reorder-up';
                 upBtn.setAttribute('aria-label', 'Mover ejercicio arriba');
                 upBtn.dataset.exId = exEl.dataset.exId;
                 upBtn.dataset.direction = 'up';
-                
+
                 const downBtn = document.createElement('button');
                 downBtn.className = 'btn btn--ghost btn--small routine-exercise-reorder-btn routine-exercise-reorder-down';
                 downBtn.setAttribute('aria-label', 'Mover ejercicio abajo');
                 downBtn.dataset.exId = exEl.dataset.exId;
                 downBtn.dataset.direction = 'down';
-                
+
                 const setButtonDisabled = (btn, disabled) => {
                     btn.disabled = disabled;
                     if (disabled) {
@@ -518,40 +518,40 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 setButtonDisabled(upBtn, index === 0);
                 setButtonDisabled(downBtn, index === exerciseCount - 1);
-                
+
                 buttonsContainer.insertBefore(upBtn, buttonsContainer.firstChild);
                 buttonsContainer.insertBefore(downBtn, buttonsContainer.firstChild);
             }
         });
     }
-    
+
     function moveRoutineExercise(exId, direction) {
         const exerciseEl = document.querySelector(`.routine-exercise[data-ex-id="${exId}"]`);
         if (!exerciseEl) return;
-        
+
         const dayEl = exerciseEl.closest('.routine-day');
         if (!dayEl) return;
-        
+
         const exercisesContainer = dayEl.querySelector('.routine-exercises');
         if (!exercisesContainer) return;
-        
+
         const exerciseElements = [...exercisesContainer.querySelectorAll('.routine-exercise')];
         const currentIndex = exerciseElements.findIndex(el => el.dataset.exId === exId);
         if (currentIndex === -1) return;
-        
+
         const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
         if (newIndex < 0 || newIndex >= exerciseElements.length) return;
-        
+
         // Swap exercises in DOM
         const currentEl = exerciseElements[currentIndex];
         const targetEl = exerciseElements[newIndex];
-        
+
         if (direction === 'up') {
             exercisesContainer.insertBefore(currentEl, targetEl);
         } else {
             exercisesContainer.insertBefore(currentEl, targetEl.nextSibling);
         }
-        
+
         // Update reorder buttons
         updateRoutineExerciseReorderButtons(dayEl);
     }
@@ -1151,10 +1151,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             updateNav(panelId);
             if (panelId === 'panel-diary') { renderSessions(); }
-            if (panelId === 'panel-stats') { 
-                buildStats(); 
-                buildChartState(); 
-                drawChart(); 
+            if (panelId === 'panel-stats') {
+                buildStats();
+                buildChartState();
+                drawChart();
                 renderArchivedCycles();
             }
             if (panelId === 'panel-import') { initWeekSelector(); }
@@ -1302,29 +1302,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cache for progress calculations to avoid repeated expensive operations
     const progressCache = new Map();
     const getCacheKey = (sessionId, exId, setId) => `${sessionId}-${exId}-${setId}`;
-    
+
     function progressText(currentSession, currentEx, currentSet) {
         // Check cache first
         const cacheKey = getCacheKey(currentSession.id, currentEx.id, currentSet.id);
         if (progressCache.has(cacheKey)) {
             return progressCache.get(cacheKey);
         }
-        
+
         // Optimized: use parsed dates and early exit
         const currDate = parseLocalDate(currentSession.date);
         const currentDateNum = currDate.getTime();
-        
+
         // Find previous sessions more efficiently - only check sessions before current date
         // Iterate backwards through sessions (they're usually sorted by date)
         for (let i = app.sessions.length - 1; i >= 0; i--) {
             const s = app.sessions[i];
             const sDate = parseLocalDate(s.date);
             if (sDate.getTime() >= currentDateNum) continue;
-            
+
             // Found a previous session, now find the exercise
             const ex = (s.exercises || []).find(e => e.name === currentEx.name);
             if (!ex) continue;
-            
+
             // Find the set with matching set number
             const prevSet = (ex.sets || []).find(st => st.setNumber === currentSet.setNumber);
             if (prevSet && (prevSet.kg || prevSet.reps)) {
@@ -1335,13 +1335,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return result;
             }
         }
-        
+
         // No previous set found
         const result = '<span class="progress--same">Primera sesión</span>';
         progressCache.set(cacheKey, result);
         return result;
     }
-    
+
     // Clear progress cache when sessions change
     const clearProgressCache = () => progressCache.clear();
     function compareSets(prev, curr, setNumber) {
@@ -1471,7 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exercisesContainer.className = 'exercises-lazy-container';
             exercisesContainer.style.display = 'none';
             body.appendChild(exercisesContainer);
-            
+
             let exercisesRendered = false;
             const renderExercisesLazy = () => {
                 if (exercisesRendered) return;
@@ -1481,7 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     exercisesContainer.appendChild(renderExercise(session, ex));
                 });
             };
-            
+
             details._renderExercises = renderExercisesLazy;
 
             const addExBtn = card.querySelector('.js-add-ex');
@@ -1507,7 +1507,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 this._renderExercises();
                                 delete this._renderExercises; // Clean up after first render
                             }
-                            
+
                             // Remove animation class first to reset
                             sessionCard.classList.remove('animate-in');
                             // Force reflow only on desktop (expensive on mobile)
@@ -3308,9 +3308,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         app.deleteTarget = { type: 'week', sessionIds: weekSessions.map(s => s.id) };
-        const weekLabel = (app.weekOffset === 0) ? 'esta semana' 
-            : (app.weekOffset === -1 ? 'la semana pasada' 
-                : (app.weekOffset === 1 ? 'la semana siguiente' 
+        const weekLabel = (app.weekOffset === 0) ? 'esta semana'
+            : (app.weekOffset === -1 ? 'la semana pasada'
+                : (app.weekOffset === 1 ? 'la semana siguiente'
                     : 'esta semana'));
         showConfirmDialog(`¿Estás seguro de que quieres eliminar todas las sesiones de ${weekLabel}? Se eliminarán ${weekSessions.length} sesión${weekSessions.length > 1 ? 'es' : ''}. Esta acción no se puede deshacer.`);
     }
@@ -3357,10 +3357,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlay = document.createElement('div');
         overlay.id = 'levelUpOverlay';
         overlay.className = 'level-up-overlay';
-        
+
         // Get level color
         const levelColor = newLevel.color || '#5ea9ff';
-        
+
         // Create content
         overlay.innerHTML = `
             <div class="level-up-container">
@@ -3416,7 +3416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = document.createElement('div');
         container.className = 'level-up-confetti-container';
         container.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10000;';
-        
+
         document.body.appendChild(container);
 
         for (let i = 0; i < particleCount; i++) {
@@ -3447,7 +3447,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =================== LEVEL SYSTEM =================== */
-    
+
     // Definición de los 50 niveles
     const LEVELS_DATA = [
         // Niveles 1-10 (Humanos - Verdes)
@@ -3461,7 +3461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { level: 8, name: 'Comprometido', days: 16, color: '#7ED957', icon: '⭐', stage: 'human' },
         { level: 9, name: 'Resuelto', days: 20, color: '#7ED957', icon: '✨', stage: 'human' },
         { level: 10, name: 'Maestro Humano', days: 25, color: '#4CAF50', icon: '👑', stage: 'human' },
-        
+
         // Niveles 11-20 (Superiores - Azules)
         { level: 11, name: 'Superior', days: 30, color: '#42A5F5', icon: '🏅', stage: 'superior' },
         { level: 12, name: 'Distinguido', days: 35, color: '#42A5F5', icon: '✍️', stage: 'superior' },
@@ -3473,7 +3473,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { level: 18, name: 'Excepcional', days: 65, color: '#42A5F5', icon: '🛡️', stage: 'superior' },
         { level: 19, name: 'Extraordinario', days: 70, color: '#42A5F5', icon: '⚡', stage: 'superior' },
         { level: 20, name: 'Maestro Superior', days: 75, color: '#1E88E5', icon: '👑', stage: 'superior' },
-        
+
         // Niveles 21-30 (Sobrehumanos - Dorados)
         { level: 21, name: 'Sobrehumano', days: 80, color: '#FFC74D', icon: '⬆️', stage: 'superhuman' },
         { level: 22, name: 'Trascendido', days: 85, color: '#FFC74D', icon: '😇', stage: 'superhuman' },
@@ -3485,25 +3485,25 @@ document.addEventListener('DOMContentLoaded', () => {
         { level: 28, name: 'Cometa', days: 115, color: '#FFC74D', icon: '☄️', stage: 'superhuman' },
         { level: 29, name: 'Solar', days: 120, color: '#FFC74D', icon: '☀️', stage: 'superhuman' },
         { level: 30, name: 'Maestro Sobrehumano', days: 125, color: '#FFB300', icon: '👑', stage: 'superhuman' },
-        
+
         // Niveles 31-40 (Divinos - Violetas)
-        { level: 31, name: 'Divino', days: 130, color: '#AB47BC', icon: '🔺', stage: 'divine' },
+        { level: 31, name: 'Divino', days: 130, color: '#AB47BC', icon: '🐦‍🔥​', stage: 'divine' },
         { level: 32, name: 'Trinitario', days: 135, color: '#AB47BC', icon: '🔺', stage: 'divine' },
         { level: 33, name: 'Mandálico', days: 140, color: '#AB47BC', icon: '🕉️', stage: 'divine' },
-        { level: 34, name: 'Cetrado', days: 145, color: '#AB47BC', icon: '⚜️', stage: 'divine' },
-        { level: 35, name: 'Espiral', days: 150, color: '#AB47BC', icon: '🌀', stage: 'divine' },
-        { level: 36, name: 'Perfecto', days: 155, color: '#AB47BC', icon: '⭕', stage: 'divine' },
+        { level: 34, name: 'Nítido', days: 145, color: '#AB47BC', icon: '⚜️', stage: 'divine' },
+        { level: 35, name: 'Nebuloso', days: 150, color: '#AB47BC', icon: '☁️', stage: 'divine' },
+        { level: 36, name: 'Perfecto', days: 155, color: '#AB47BC', icon: '💎', stage: 'divine' },
         { level: 37, name: 'Astral', days: 160, color: '#AB47BC', icon: '🕐', stage: 'divine' },
         { level: 38, name: 'Estelar', days: 165, color: '#AB47BC', icon: '⭐', stage: 'divine' },
         { level: 39, name: 'Infinito', days: 170, color: '#AB47BC', icon: '♾️', stage: 'divine' },
         { level: 40, name: 'Maestro Divino', days: 175, color: '#8E24AA', icon: '💎', stage: 'divine' },
-        
+
         // Niveles 41-50 (Abismales/Demoníacos - Rojos)
         { level: 41, name: 'Abismal', days: 180, color: '#E53935', icon: '🌑', stage: 'abyssal' },
         { level: 42, name: 'Fractal', days: 185, color: '#E53935', icon: '🔷', stage: 'abyssal' },
         { level: 43, name: 'Oscuro', days: 190, color: '#E53935', icon: '👁️', stage: 'abyssal' },
         { level: 44, name: 'Encapuchado', days: 195, color: '#E53935', icon: '🧙', stage: 'abyssal' },
-        { level: 45, name: 'Vacío', days: 200, color: '#E53935', icon: '⭕', stage: 'abyssal' },
+        { level: 45, name: 'Vacío', days: 200, color: '#E53935', icon: '🌀', stage: 'abyssal' },
         { level: 46, name: 'Garra', days: 205, color: '#E53935', icon: '🦅', stage: 'abyssal' },
         { level: 47, name: 'Agrietado', days: 210, color: '#E53935', icon: '🌐', stage: 'abyssal' },
         { level: 48, name: 'Distorsionado', days: 215, color: '#E53935', icon: '🌌', stage: 'abyssal' },
@@ -3598,7 +3598,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function getCompletedDays() {
         // Include archived days in the count
         const archivedDays = app.totalDaysCompleted || 0;
-        
+
         // Count current cycle days
         const completedSessions = app.sessions.filter(s => s.completed === true);
         const uniqueDays = new Set();
@@ -3607,7 +3607,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 uniqueDays.add(s.date);
             }
         });
-        
+
         return archivedDays + uniqueDays.size;
     }
 
@@ -3650,7 +3650,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Obtener rangos desbloqueados basándose en días completados
     function getUnlockedRanges(daysCompleted) {
         const unlockedRanges = [];
-        
+
         for (const range of MEDAL_RANGES) {
             // Para rangos normales, verificar si el usuario ha alcanzado el nivel mínimo del rango
             const minLevel = LEVELS_DATA.find(l => l.level === range.min);
@@ -3658,7 +3658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 unlockedRanges.push(range);
             }
         }
-        
+
         return unlockedRanges;
     }
 
@@ -3679,12 +3679,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Función para obtener la imagen de medalla según el nivel
     function getMedalImage(level) {
         const levelNum = typeof level === 'object' ? level.level : level;
-        
+
         // Regla especial para nivel 50
         if (levelNum === 50) {
             const STORAGE_KEY_50 = 'trainingDiary.level50ReachedAt';
             let reachedAt = null;
-            
+
             try {
                 const stored = localStorage.getItem(STORAGE_KEY_50);
                 if (stored) {
@@ -3697,7 +3697,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {
                 console.warn('Error loading level 50 date:', e);
             }
-            
+
             // Si no hay fecha guardada o es inválida, guardar la fecha actual
             if (!reachedAt) {
                 reachedAt = new Date();
@@ -3707,11 +3707,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn('Error saving level 50 date:', e);
                 }
             }
-            
+
             // Calcular días transcurridos
             const now = new Date();
             const daysDiff = Math.floor((now - reachedAt) / (1000 * 60 * 60 * 24));
-            
+
             // Si han pasado 10 días o más, usar Level+50.png
             if (daysDiff >= 10) {
                 return 'Level+50.png';
@@ -3719,7 +3719,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Si no, usar Level50.png
             return 'Level50.png';
         }
-        
+
         // Reglas normales para otros niveles
         if (levelNum >= 1 && levelNum <= 5) {
             return 'Level1.png';
@@ -3742,7 +3742,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (levelNum >= 46 && levelNum <= 49) {
             return 'Level45.png';
         }
-        
+
         // Si no coincide con ningún rango, retornar null (usará emoji)
         return null;
     }
@@ -3764,7 +3764,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // El usuario subió de nivel
             const oldLevel = app.lastLevel;
             app.lastLevel = currentLevel.level;
-            
+
             // Si alcanzó el nivel 50 por primera vez, guardar la fecha
             if (currentLevel.level === 50) {
                 const STORAGE_KEY_50 = 'trainingDiary.level50ReachedAt';
@@ -3778,7 +3778,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.warn('Error saving level 50 date:', error);
                 }
             }
-            
+
             // Guardar directamente sin interceptar (evitar recursión)
             const payload = {
                 sessions: app.sessions,
@@ -3805,13 +3805,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // Mostrar mensaje motivador
             const messages = MOTIVATIONAL_MESSAGES[currentLevel.stage] || MOTIVATIONAL_MESSAGES.human;
             const randomMessage = messages[Math.floor(Math.random() * messages.length)];
-            
+
             // Trigger level up animation
             triggerLevelUpAnimation(currentLevel, oldLevel);
-            
+
             // Crear notificación especial
             toast(`🎉 ¡Nivel ${currentLevel.level} alcanzado! ${currentLevel.name}`, 'ok');
-            
+
             // Mostrar mensaje motivador después de un breve delay
             setTimeout(() => {
                 toast(randomMessage, 'ok');
@@ -3842,16 +3842,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Renderizar nivel actual
         // Obtener frase motivadora específica del nivel
         const motivationalMessage = LEVEL_MESSAGES[currentLevel.level] || 'Sigue adelante, cada día cuenta.';
-        
+
         // Obtener imagen usando la función getMedalImage
         const imageFile = getMedalImage(currentLevel);
-        
+
         // Usar imagen si está definida, emoji como fallback
-        const levelIcon = imageFile 
+        const levelIcon = imageFile
             ? `<img src="${imageFile}" alt="Nivel ${currentLevel.level}" style="width:80px; height:80px; object-fit:contain; margin-bottom:8px; background:transparent; mix-blend-mode:normal" onerror="this.onerror=null; this.src=''; this.style.display='none'; const fallback = this.parentElement.querySelector('.level-icon-fallback'); if(fallback) fallback.style.display='block';" />
                 <div class="level-icon-fallback" style="font-size:3rem; margin-bottom:8px; display:none">${currentLevel.icon}</div>`
             : `<div style="font-size:3rem; margin-bottom:8px">${currentLevel.icon}</div>`;
-        
+
         currentLevelDisplay.innerHTML = `
             <div style="margin-bottom:16px">
                 ${levelIcon}
@@ -3926,7 +3926,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 medalsList.innerHTML = unlockedRanges.map(range => {
                     // Determinar si el rango actual contiene el nivel actual del usuario
                     const isCurrentRange = currentLevel.level >= range.min && currentLevel.level <= range.max;
-                    
+
                     // Para el nivel 50, usar getMedalImage para obtener la imagen correcta (Level50.png o Level+50.png)
                     let imageFile = range.image;
                     if (range.special && range.min === 50) {
@@ -3935,12 +3935,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             imageFile = getMedalImage(level50);
                         }
                     }
-                    
-                    const medalIcon = imageFile 
+
+                    const medalIcon = imageFile
                         ? `<img src="${imageFile}" alt="${range.name}" style="width:100%; height:auto; object-fit:contain; background:transparent; mix-blend-mode:normal" onerror="this.onerror=null; this.style.display='none'; const fallback = this.parentElement.querySelector('.medal-icon-fallback'); if(fallback) fallback.style.display='block';" />
                             <div class="medal-icon-fallback" style="font-size:2rem; display:none; text-align:center">🏅</div>`
                         : `<div style="font-size:2rem; text-align:center">🏅</div>`;
-                    
+
                     return `
                         <div class="medal-item" data-range-min="${range.min}" data-range-max="${range.max}" style="cursor:pointer; padding:12px; background:var(--surface); border-radius:var(--radius); border:${isCurrentRange ? '2px' : '1px'} solid ${isCurrentRange ? range.color : 'var(--border)'}; text-align:center; transition:var(--transition-base); display:flex; flex-direction:column; align-items:center; gap:8px" title="Clic para ver detalles">
                             <div style="width:100%; aspect-ratio:1; display:flex; align-items:center; justify-content:center">
@@ -3953,7 +3953,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                 }).join('');
-                
+
                 // Añadir event listeners para abrir el modal
                 medalsList.querySelectorAll('.medal-item').forEach(item => {
                     item.addEventListener('click', () => {
@@ -3977,9 +3977,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const dialog = $('#medalDetailDialog');
         const content = $('#medalDetailContent');
         const title = $('#medalDetailTitle');
-        
+
         if (!dialog || !content || !title) return;
-        
+
         // Obtener imagen del rango
         let imageFile = range.image;
         if (range.special && range.min === 50) {
@@ -3988,19 +3988,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 imageFile = getMedalImage(level50);
             }
         }
-        
-        const medalImage = imageFile 
+
+        const medalImage = imageFile
             ? `<img src="${imageFile}" alt="${range.name}" style="width:150px; height:150px; object-fit:contain; background:transparent; mix-blend-mode:normal; margin:0 auto; display:block" onerror="this.onerror=null; this.style.display='none'; const fallback = this.parentElement.querySelector('.medal-detail-fallback'); if(fallback) fallback.style.display='block';" />
                 <div class="medal-detail-fallback" style="font-size:4rem; display:none; text-align:center; margin:20px 0">🏅</div>`
             : `<div style="font-size:4rem; text-align:center; margin:20px 0">🏅</div>`;
-        
+
         // Obtener todas las frases motivacionales del rango
         const rangeMessages = getRangeMessages(range);
-        
+
         // Obtener el nivel mínimo del rango para mostrar información de desbloqueo
         const minLevel = LEVELS_DATA.find(l => l.level === range.min);
         const unlockDays = minLevel ? minLevel.days : 0;
-        
+
         title.textContent = `Medalla - ${range.name}`;
         content.innerHTML = `
             <div style="text-align:center">
@@ -4017,8 +4017,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight:600; color:var(--heading); margin-bottom:12px; text-align:center">Frases motivacionales:</div>
                         <div style="display:flex; flex-direction:column; gap:8px">
                             ${rangeMessages.map(item => {
-                                const levelData = LEVELS_DATA.find(l => l.level === item.level);
-                                return `
+            const levelData = LEVELS_DATA.find(l => l.level === item.level);
+            return `
                                     <div style="font-style:italic; padding:8px; background:var(--surface-2); border-radius:var(--radius); border-left:3px solid ${range.color}">
                                         <div style="font-size:0.75rem; font-weight:600; color:${levelData ? levelData.color : range.color}; margin-bottom:4px; font-style:normal">
                                             Nivel ${item.level}
@@ -4026,13 +4026,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <div>"${item.message}"</div>
                                     </div>
                                 `;
-                            }).join('')}
+        }).join('')}
                         </div>
                     </div>
                 </div>
             </div>
         `;
-        
+
         dialog.showModal();
     }
 
@@ -4040,7 +4040,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderAllLevelsList(daysCompleted, currentLevel) {
         const allLevelsList = $('#allLevelsList');
         if (!allLevelsList) return;
-        
+
         allLevelsList.innerHTML = LEVELS_DATA.map(level => {
             const isUnlocked = daysCompleted >= level.days;
             const isCurrent = level.level === currentLevel.level;
@@ -4075,9 +4075,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Interceptar save para verificar subida de nivel
     // Esto debe hacerse después de que todas las funciones estén definidas
-    (function() {
+    (function () {
         const originalSaveFunction = save;
-        save = async function() {
+        save = async function () {
             await originalSaveFunction();
             // Solo verificar nivel si las funciones están disponibles
             if (typeof checkLevelUp === 'function') {
@@ -4161,9 +4161,9 @@ document.addEventListener('DOMContentLoaded', () => {
             app.goals.forEach(goal => updateGoalProgress(goal));
             save();
         }
-        
+
         refresh();
-        
+
         // If session was just completed, close it and open the next non-completed session
         // This must happen AFTER refresh() so the DOM is updated
         if (s.completed && !wasCompleted) {
@@ -4176,7 +4176,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (completedDetails) {
                         completedDetails.open = false;
                     }
-                    
+
                     // Find and open the next non-completed session
                     const week = getWeekSessions();
                     const sortedSessions = [...week].sort((a, b) => {
@@ -4185,7 +4185,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
                         return parseLocalDate(a.date) - parseLocalDate(b.date);
                     });
-                    
+
                     const nextSession = sortedSessions.find(session => !session.completed && session.id !== id);
                     if (nextSession) {
                         // Use requestAnimationFrame for smooth opening
@@ -4530,9 +4530,9 @@ document.addEventListener('DOMContentLoaded', () => {
             toast('No hay sesiones para archivar', 'warn');
             return;
         }
-        
+
         const cycleName = prompt('Nombre del ciclo (opcional):', `Ciclo ${new Date().toLocaleDateString('es-ES')}`);
-        
+
         // Calculate current cycle days (only from current sessions, not archived)
         const completedSessions = app.sessions.filter(s => s.completed === true);
         const uniqueDays = new Set();
@@ -4542,10 +4542,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         const currentCycleDays = uniqueDays.size;
-        
+
         // Save current level before archiving
         const currentLevel = app.lastLevel || 1;
-        
+
         const archivedCycle = {
             id: uuid(),
             name: cycleName || `Ciclo ${new Date().toLocaleDateString('es-ES')}`,
@@ -4559,9 +4559,9 @@ document.addEventListener('DOMContentLoaded', () => {
             lastLevel: currentLevel,
             daysCompleted: currentCycleDays
         };
-        
+
         app.archivedCycles.push(archivedCycle);
-        
+
         // Reset current cycle but keep level and accumulate days completed
         app.sessions = [];
         app.prs = {};
@@ -4573,20 +4573,20 @@ document.addEventListener('DOMContentLoaded', () => {
         // Add current cycle days to total
         if (!app.totalDaysCompleted) app.totalDaysCompleted = 0;
         app.totalDaysCompleted += currentCycleDays;
-        
+
         save();
         refresh({ preserveTab: true });
         renderArchivedCycles();
         toast('Ciclo archivado correctamente', 'ok');
     }
-    
+
     function resumeArchivedCycle(cycleId) {
         const cycle = app.archivedCycles.find(c => c.id === cycleId);
         if (!cycle) {
             toast('Ciclo no encontrado', 'warn');
             return;
         }
-        
+
         if (app.sessions.length > 0) {
             const confirmResume = confirm('¿Archivar el ciclo actual antes de retomar este ciclo? Si cancelas, se perderán los datos del ciclo actual.');
             if (confirmResume) {
@@ -4595,7 +4595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         }
-        
+
         // Restore cycle data
         app.sessions = JSON.parse(JSON.stringify(cycle.sessions));
         app.prs = JSON.parse(JSON.stringify(cycle.prs));
@@ -4603,7 +4603,7 @@ document.addEventListener('DOMContentLoaded', () => {
         app.achievements = JSON.parse(JSON.stringify(cycle.achievements));
         app.streak = JSON.parse(JSON.stringify(cycle.streak));
         app.weeklyGoal = JSON.parse(JSON.stringify(cycle.weeklyGoal));
-        
+
         // Restore level and subtract archived days from total
         const archivedDays = cycle.daysCompleted || 0;
         if (app.totalDaysCompleted >= archivedDays) {
@@ -4611,26 +4611,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // Keep the higher level between current and archived
         app.lastLevel = Math.max(app.lastLevel || 1, cycle.lastLevel || 1);
-        
+
         // Remove from archived cycles
         app.archivedCycles = app.archivedCycles.filter(c => c.id !== cycleId);
-        
+
         save();
         refresh({ preserveTab: true });
         renderArchivedCycles();
         toast('Ciclo restaurado correctamente', 'ok');
     }
-    
+
     function renderArchivedCycles() {
         const container = $('#archivedCyclesList');
         if (!container) return;
-        
+
         container.innerHTML = '';
-        
+
         if (app.archivedCycles.length === 0) {
             return;
         }
-        
+
         app.archivedCycles.forEach(cycle => {
             const btn = document.createElement('button');
             btn.className = 'btn btn--ghost';
@@ -5692,7 +5692,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapped = app.importBuffer.map((s, idx) => {
             let sessionDate;
             let dateISO;
-            
+
             // Si la sesión tiene una fecha original, usarla
             if (s.date) {
                 try {
@@ -5717,7 +5717,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionDate.setHours(12, 0, 0, 0);
                 dateISO = toLocalISO(sessionDate);
             }
-            
+
             return normalizeSessionFromImport(s, dateISO);
         });
 
@@ -6633,7 +6633,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         }
-        
+
         // Initial render of archived cycles
         renderArchivedCycles();
 
@@ -6772,7 +6772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function render() {
         renderWeekbar();
         renderSummary();
-        
+
         // Only render visible panels for better performance
         const activePanel = document.querySelector('.panel[aria-hidden="false"]');
         if (activePanel) {
@@ -7058,12 +7058,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const daysCompleted = getCompletedDays();
             const currentLevel = getCurrentLevel(daysCompleted);
             const imageFile = getMedalImage(currentLevel);
-            
-            const levelImage = imageFile 
+
+            const levelImage = imageFile
                 ? `<img src="${imageFile}" alt="Nivel ${currentLevel.level}" style="width:70px; height:70px; object-fit:contain; background:transparent; mix-blend-mode:normal; flex-shrink:0" onerror="this.onerror=null; this.src=''; this.style.display='none'; const fallback = this.parentElement.querySelector('.level-icon-fallback'); if(fallback) fallback.style.display='block';" />
                     <div class="level-icon-fallback" style="font-size:2rem; display:none">${currentLevel.icon}</div>`
                 : `<div style="font-size:2rem; width:70px; height:70px; display:flex; align-items:center; justify-content:center; flex-shrink:0">${currentLevel.icon}</div>`;
-            
+
             levelDisplay.innerHTML = `
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%">
                     <div style="display:flex; align-items:center; justify-content:center; flex-shrink:0">
