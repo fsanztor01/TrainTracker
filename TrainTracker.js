@@ -1,7 +1,31 @@
 document.addEventListener('DOMContentLoaded', () => {
     /* =================== Utils & Theme =================== */
-    const $ = (s, c = document) => c.querySelector(s);
+    // Optimized DOM queries - cache frequently accessed elements
+    const domCache = new Map();
+    const $ = (s, c = document) => {
+        // Don't cache if context is not document (dynamic queries)
+        if (c !== document) return c.querySelector(s);
+        const key = s;
+        if (!domCache.has(key)) {
+            const el = document.querySelector(s);
+            if (el) domCache.set(key, el);
+            return el;
+        }
+        const cached = domCache.get(key);
+        // Verify element still exists
+        if (cached && document.contains(cached)) {
+            return cached;
+        }
+        // Element removed, clear cache
+        domCache.delete(key);
+        return null;
+    };
     const $$ = (s, c = document) => [...c.querySelectorAll(s)];
+    
+    // Clear cache when DOM changes significantly
+    const clearDomCache = () => {
+        domCache.clear();
+    };
     const uuid = () => ((typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') ? crypto.randomUUID() :
         'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
             const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16);
@@ -277,9 +301,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Make renderColorSwatches available globally for renderProfile
     window.renderColorSwatches = renderColorSwatches;
 
-    /* Parallax suave */
+    /* Parallax suave - throttled for better performance */
+    let scrollTimeout;
     window.addEventListener('scroll', () => {
-        document.documentElement.style.setProperty('--grad-pos', String(window.scrollY));
+        if (scrollTimeout) return;
+        scrollTimeout = requestAnimationFrame(() => {
+            document.documentElement.style.setProperty('--grad-pos', String(window.scrollY));
+            scrollTimeout = null;
+        });
     }, { passive: true });
 
     /* =================== Estado =================== */
@@ -1237,6 +1266,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const hadPrev = prevDetails.length > 0;
 
+        // Clear cache when rendering sessions
+        clearDomCache();
+        
         container.innerHTML = '';
 
         // Use robust function to check if there are any sessions in the visible week
@@ -1303,7 +1335,10 @@ document.addEventListener('DOMContentLoaded', () => {
             summary.style.cursor = 'pointer';
 
             const left = document.createElement('div');
-            left.innerHTML = `<strong style="font-weight:800">${session.name}</strong>`;
+            const strong = document.createElement('strong');
+            strong.style.fontWeight = '800';
+            strong.textContent = session.name;
+            left.appendChild(strong);
             const right = document.createElement('div');
             right.style.color = 'var(--muted)';
             const dateStr = new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -1359,15 +1394,20 @@ document.addEventListener('DOMContentLoaded', () => {
             fragment.appendChild(details);
 
             // Add toggle event listener to trigger animation each time
+            // Optimized for mobile performance
+            let toggleTimeout;
             details.addEventListener('toggle', function () {
-                requestAnimationFrame(() => {
+                if (toggleTimeout) cancelAnimationFrame(toggleTimeout);
+                toggleTimeout = requestAnimationFrame(() => {
                     const sessionCard = this.querySelector('.session.card');
                     if (sessionCard) {
                         if (this.open) {
                             // Remove animation class first to reset
                             sessionCard.classList.remove('animate-in');
-                            // Force reflow to reset animation
-                            void sessionCard.offsetWidth;
+                            // Force reflow only on desktop (expensive on mobile)
+                            if (window.innerWidth > 767) {
+                                void sessionCard.offsetWidth;
+                            }
                             // Add class to trigger animation
                             requestAnimationFrame(() => {
                                 sessionCard.classList.add('animate-in');
@@ -1377,6 +1417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             sessionCard.classList.remove('animate-in');
                         }
                     }
+                    toggleTimeout = null;
                 });
             });
 
@@ -4942,7 +4983,16 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        window.addEventListener('resize', () => { resizeCanvas(); drawChart(); }, { passive: true });
+        // Throttle resize events for better performance
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            if (resizeTimeout) return;
+            resizeTimeout = requestAnimationFrame(() => {
+                resizeCanvas();
+                drawChart();
+                resizeTimeout = null;
+            });
+        }, { passive: true });
         resizeCanvas();
     }
 
@@ -6459,13 +6509,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function render() {
         renderWeekbar();
         renderSummary();
-        renderSessions();
-        renderRoutines();
-        renderProfile();
-        renderGoals();
-        renderRecentAchievements();
-        renderAllAchievements();
-        initWeekSelector();
+        
+        // Only render visible panels for better performance
+        const activePanel = document.querySelector('.panel[aria-hidden="false"]');
+        if (activePanel) {
+            const panelId = activePanel.id;
+            if (panelId === 'panel-diary') {
+                renderSessions();
+            } else if (panelId === 'panel-routines') {
+                renderRoutines();
+            } else if (panelId === 'panel-profile') {
+                renderProfile();
+            } else if (panelId === 'panel-goals') {
+                renderGoals();
+                renderRecentAchievements();
+                renderAllAchievements();
+                renderCompetitiveMode();
+            } else if (panelId === 'panel-import') {
+                initWeekSelector();
+            }
+        } else {
+            // Fallback: render diary by default
+            renderSessions();
+        }
     }
 
     function refresh({ preserveTab } = {}) {

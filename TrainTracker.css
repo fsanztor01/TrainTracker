@@ -97,7 +97,52 @@
 
 * {
     box-sizing: border-box;
-    transition: var(--transition-theme);
+}
+
+/* Optimize transitions - only apply to elements that need them */
+.card,
+.btn,
+.input,
+.tab-btn,
+.session,
+.exercise,
+.set-card,
+.kpi {
+    transition: var(--transition-base);
+}
+
+/* Optimize for mobile performance */
+@media (max-width: 767px) {
+    * {
+        transition-duration: 0.15s !important;
+    }
+    
+    /* Disable expensive transitions on mobile */
+    .card,
+    .set-card,
+    .kpi {
+        transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    
+    /* Reduce box-shadow complexity on mobile */
+    .card,
+    .set-card,
+    .kpi,
+    .btn {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* Use will-change for animated elements */
+    .session.card,
+    .day-panel[open] .session.card {
+        will-change: transform, opacity;
+    }
+    
+    /* Disable expensive filters on mobile */
+    .routine-exercise {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
 }
 
 /* Smooth animations for all elements */
@@ -265,6 +310,9 @@ header::after {
 @media (max-width: 767px) {
     header {
         padding: var(--spacing-md) var(--spacing-md) calc(var(--spacing-md) + var(--safe-t));
+        /* Reduce backdrop-filter on mobile for better performance */
+        backdrop-filter: blur(8px) saturate(120%);
+        -webkit-backdrop-filter: blur(8px) saturate(120%);
     }
 }
 
@@ -274,6 +322,14 @@ header::after {
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     border-bottom: 1px solid #E5E7EB;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 0 rgba(0, 0, 0, 0.02) inset;
+}
+
+@media (max-width: 767px) {
+    [data-theme="light"] header {
+        /* Reduce backdrop-filter on mobile for better performance */
+        backdrop-filter: blur(8px) saturate(120%);
+        -webkit-backdrop-filter: blur(8px) saturate(120%);
+    }
 }
 
 [data-theme="light"] header::after {
@@ -1227,6 +1283,14 @@ header::after {
     overflow: hidden;
 }
 
+@media (max-width: 767px) {
+    .card {
+        /* Reduce backdrop-filter on mobile for better performance */
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+}
+
 .card::before {
     content: '';
     position: absolute;
@@ -1322,6 +1386,14 @@ h6 {
     transition: var(--transition-base);
     position: relative;
     overflow: hidden;
+}
+
+@media (max-width: 767px) {
+    .kpi {
+        /* Reduce backdrop-filter on mobile for better performance */
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
 }
 
 .kpi::after {
@@ -1801,6 +1873,14 @@ textarea.input:disabled {
     transition: var(--transition-base);
     animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
+}
+
+@media (max-width: 767px) {
+    .set-card {
+        /* Reduce backdrop-filter on mobile for better performance */
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
 }
 
 .set-card::before {
