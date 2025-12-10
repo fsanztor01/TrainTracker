@@ -1844,6 +1844,104 @@ textarea.input:disabled {
     background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01));
 }
 
+/* Routine exercise reorder buttons - same styles as exercise reorder */
+.routine-exercise-reorder-btn {
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0;
+    transition: var(--transition-base);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: #0D0D0D;
+    box-shadow: var(--shadow-xs);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Triangle icons using CSS */
+.routine-exercise-reorder-btn::after {
+    content: '';
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+}
+
+.routine-exercise-reorder-up::after {
+    border-bottom: 6px solid currentColor;
+}
+
+.routine-exercise-reorder-down::after {
+    border-top: 6px solid currentColor;
+}
+
+/* Shimmer effect */
+.routine-exercise-reorder-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent);
+    transition: left 0.5s ease;
+    z-index: 1;
+}
+
+.routine-exercise-reorder-btn:hover:not(:disabled)::before {
+    left: 100%;
+}
+
+.routine-exercise-reorder-btn:hover:not(:disabled) {
+    background: #0F0F0F;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+.routine-exercise-reorder-btn:active:not(:disabled) {
+    transform: scale(0.95);
+    box-shadow: var(--shadow-xs);
+}
+
+.routine-exercise-reorder-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+}
+
+.routine-exercise-reorder-down {
+    opacity: 1;
+}
+
+.routine-exercise-reorder-down:hover:not(:disabled) {
+    opacity: 1;
+}
+
+/* Light mode routine reorder buttons */
+[data-theme="light"] .routine-exercise-reorder-btn {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.02));
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-xs);
+}
+
+[data-theme="light"] .routine-exercise-reorder-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.04));
+    border-color: rgba(0, 0, 0, 0.22);
+    box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .routine-exercise-reorder-btn:disabled {
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.01));
+}
+
 .exercise__name {
     font-weight: 600;
     font-size: 0.875rem;

@@ -44,7 +44,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return str.replace(/[&<>"']/g, ch => HTML_ESCAPE[ch] || ch);
     }
 
-
     const THEME_KEY = 'trainingDiary.theme';
     const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
@@ -280,16 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentTheme = document.documentElement.getAttribute('data-theme');
     updateThemeColors(currentTheme);
 
-    // Colors are now updated directly in the theme toggle handler above
-
-    // Render swatches when profile panel is shown
-    function initColorPicker() {
-        const colorsPanel = $('#panel-colors');
-        if (colorsPanel && colorsPanel.getAttribute('aria-hidden') === 'false') {
-            renderColorSwatches();
-        }
-    }
-
     // Render on tab change
     const profileTab = $('#tab-profile');
     if (profileTab) {
@@ -330,6 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
         goals: [], // Sistema de objetivos
         recentAchievements: [], // Logros recientes para celebración
         lastLevel: 1, // Nivel actual del usuario
+        totalDaysCompleted: 0, // Días completados acumulados (incluye ciclos archivados)
+        archivedCycles: [], // Ciclos archivados
         // Manual save system
         editingSessions: {}, // { sessionId: { isEditing: bool, hasChanges: bool, originalState: {} } }
         sessionSnapshots: {} // Backup copies for cancel
@@ -456,6 +447,8 @@ document.addEventListener('DOMContentLoaded', () => {
         (data.exercises || []).forEach(ex => addRoutineExercise(node, ex));
         container.appendChild(node);
         updateRoutineDayTitles();
+        updateRoutineExerciseReorderButtons(node);
+        return node;
     }
 
     function addRoutineExercise(dayEl, data = {}) {
@@ -470,7 +463,97 @@ document.addEventListener('DOMContentLoaded', () => {
         const sets = (data.sets && data.sets.length) ? data.sets : [{ id: uuid(), planKg: '', planReps: '', planRir: '' }];
         sets.forEach(set => addRoutineSet(node, set));
         const exercisesContainer = dayEl.querySelector('.routine-exercises');
-        if (exercisesContainer) exercisesContainer.appendChild(node);
+        if (exercisesContainer) {
+            exercisesContainer.appendChild(node);
+            updateRoutineExerciseReorderButtons(dayEl);
+        }
+    }
+    
+    function updateRoutineExerciseReorderButtons(dayEl) {
+        const exercisesContainer = dayEl.querySelector('.routine-exercises');
+        if (!exercisesContainer) return;
+        
+        const exerciseElements = [...exercisesContainer.querySelectorAll('.routine-exercise')];
+        const exerciseCount = exerciseElements.length;
+        
+        exerciseElements.forEach((exEl, index) => {
+            const headEl = exEl.querySelector('.routine-exercise__head');
+            if (!headEl) return;
+            
+            // Find the buttons container (the div that contains + Set and X buttons)
+            let buttonsContainer = headEl.querySelector('div:last-child');
+            if (!buttonsContainer) {
+                buttonsContainer = document.createElement('div');
+                headEl.appendChild(buttonsContainer);
+            }
+            
+            // Remove existing reorder buttons
+            const existingButtons = buttonsContainer.querySelectorAll('.routine-exercise-reorder-btn');
+            existingButtons.forEach(btn => btn.remove());
+            
+            // Add buttons if there are 2+ exercises
+            if (exerciseCount >= 2) {
+                buttonsContainer.style.display = 'flex';
+                buttonsContainer.style.alignItems = 'center';
+                buttonsContainer.style.gap = '6px';
+                
+                const upBtn = document.createElement('button');
+                upBtn.className = 'btn btn--ghost btn--small routine-exercise-reorder-btn routine-exercise-reorder-up';
+                upBtn.setAttribute('aria-label', 'Mover ejercicio arriba');
+                upBtn.dataset.exId = exEl.dataset.exId;
+                upBtn.dataset.direction = 'up';
+                
+                const downBtn = document.createElement('button');
+                downBtn.className = 'btn btn--ghost btn--small routine-exercise-reorder-btn routine-exercise-reorder-down';
+                downBtn.setAttribute('aria-label', 'Mover ejercicio abajo');
+                downBtn.dataset.exId = exEl.dataset.exId;
+                downBtn.dataset.direction = 'down';
+                
+                const setButtonDisabled = (btn, disabled) => {
+                    btn.disabled = disabled;
+                    if (disabled) {
+                        btn.style.opacity = '0.3';
+                        btn.style.cursor = 'not-allowed';
+                    }
+                };
+                setButtonDisabled(upBtn, index === 0);
+                setButtonDisabled(downBtn, index === exerciseCount - 1);
+                
+                buttonsContainer.insertBefore(upBtn, buttonsContainer.firstChild);
+                buttonsContainer.insertBefore(downBtn, buttonsContainer.firstChild);
+            }
+        });
+    }
+    
+    function moveRoutineExercise(exId, direction) {
+        const exerciseEl = document.querySelector(`.routine-exercise[data-ex-id="${exId}"]`);
+        if (!exerciseEl) return;
+        
+        const dayEl = exerciseEl.closest('.routine-day');
+        if (!dayEl) return;
+        
+        const exercisesContainer = dayEl.querySelector('.routine-exercises');
+        if (!exercisesContainer) return;
+        
+        const exerciseElements = [...exercisesContainer.querySelectorAll('.routine-exercise')];
+        const currentIndex = exerciseElements.findIndex(el => el.dataset.exId === exId);
+        if (currentIndex === -1) return;
+        
+        const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+        if (newIndex < 0 || newIndex >= exerciseElements.length) return;
+        
+        // Swap exercises in DOM
+        const currentEl = exerciseElements[currentIndex];
+        const targetEl = exerciseElements[newIndex];
+        
+        if (direction === 'up') {
+            exercisesContainer.insertBefore(currentEl, targetEl);
+        } else {
+            exercisesContainer.insertBefore(currentEl, targetEl.nextSibling);
+        }
+        
+        // Update reorder buttons
+        updateRoutineExerciseReorderButtons(dayEl);
     }
 
     function addRoutineSet(exEl, data = {}) {
@@ -516,20 +599,23 @@ document.addEventListener('DOMContentLoaded', () => {
         resetRoutineBuilder();
         const routineNameInput = $('#routineName');
         if (routineNameInput) routineNameInput.value = routine.name || '';
-        (routine.days || []).forEach(day => addRoutineDay({
-            id: day.id || uuid(),
-            name: day.name || '',
-            exercises: (day.exercises || []).map(ex => ({
-                id: ex.id || uuid(),
-                name: ex.name || '',
-                sets: (ex.sets || []).map(set => ({
-                    id: set.id || uuid(),
-                    kg: set.kg || '',
-                    reps: set.reps || '',
-                    rir: set.rir || ''
+        (routine.days || []).forEach(day => {
+            const dayEl = addRoutineDay({
+                id: day.id || uuid(),
+                name: day.name || '',
+                exercises: (day.exercises || []).map(ex => ({
+                    id: ex.id || uuid(),
+                    name: ex.name || '',
+                    sets: (ex.sets || []).map(set => ({
+                        id: set.id || uuid(),
+                        kg: set.kg || '',
+                        reps: set.reps || '',
+                        rir: set.rir || ''
+                    }))
                 }))
-            }))
-        }));
+            });
+            if (dayEl) updateRoutineExerciseReorderButtons(dayEl);
+        });
         app.routineEditId = routine.id || null;
     }
 
@@ -706,7 +792,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const detail = document.createElement('div');
             detail.className = 'routine-default__meta';
-            const dayNames = (routine.days || []).map((day, idx) => `${idx + 1}. ${day.name || 'Sin nombre'}`);
+            const days = routine.days || [];
+            const dayNames = days.map((day, idx) => `${idx + 1}. ${day.name || 'Sin nombre'}`);
             detail.textContent = dayNames.length ? dayNames.join(' · ') : 'Sin días definidos';
             item.appendChild(detail);
 
@@ -731,15 +818,18 @@ document.addEventListener('DOMContentLoaded', () => {
             routineNameInput.value = templateLabels[key] || `Rutina ${key}`;
             routineNameInput.focus();
         }
-        preset.forEach(day => addRoutineDay({
-            id: uuid(),
-            name: day.name,
-            exercises: (day.ex || []).map(exName => ({
+        preset.forEach(day => {
+            const dayEl = addRoutineDay({
                 id: uuid(),
-                name: exName,
-                sets: [{ id: uuid(), kg: '', reps: '', rir: '' }]
-            }))
-        }));
+                name: day.name,
+                exercises: (day.ex || []).map(exName => ({
+                    id: uuid(),
+                    name: exName,
+                    sets: [{ id: uuid(), kg: '', reps: '', rir: '' }]
+                }))
+            });
+            if (dayEl) updateRoutineExerciseReorderButtons(dayEl);
+        });
         app.routineEditId = null;
         updateRoutineDayTitles();
     }
@@ -851,7 +941,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* =================== Persistencia =================== */
     async function save() {
-        // Clear progress cache when data changes
         clearProgressCache();
         const payload = {
             sessions: app.sessions,
@@ -864,13 +953,14 @@ document.addEventListener('DOMContentLoaded', () => {
             achievements: app.achievements || [],
             streak: app.streak || { current: 0, lastDate: null },
             weeklyGoal: app.weeklyGoal || { target: 3, current: 0 },
-            statsPeriod: app.statsPeriod || '8weeks', // Guardar el período de estadísticas
+            statsPeriod: app.statsPeriod || '8weeks',
             goals: app.goals || [],
             recentAchievements: app.recentAchievements || [],
-            lastLevel: app.lastLevel || 1
+            lastLevel: app.lastLevel || 1,
+            totalDaysCompleted: app.totalDaysCompleted || 0,
+            archivedCycles: app.archivedCycles || []
         };
 
-        // Save to localStorage
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         } catch (error) {
@@ -880,8 +970,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function load() {
         let parsed = null;
-
-        // Load from localStorage
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) {
@@ -896,16 +984,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Parse and load data
+        const ensureSessionsCompleted = (sessions) => {
+            sessions.forEach(session => {
+                if (session.completed === undefined) {
+                    session.completed = false;
+                }
+            });
+        };
+
         try {
             if (Array.isArray(parsed)) {
-                // Legacy format: just sessions array
                 app.sessions = parsed;
-                // Ensure all sessions have the completed field
-                app.sessions.forEach(session => {
-                    if (session.completed === undefined) {
-                        session.completed = false;
-                    }
-                });
+                ensureSessionsCompleted(app.sessions);
                 app.routines = [];
                 app.profile = createDefaultProfile();
                 app.notes = [];
@@ -917,34 +1007,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.weeklyGoal = { target: 3, current: 0 };
                 app.statsPeriod = '8weeks';
             } else {
-                // Modern format: full object
                 app.sessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
-                // Ensure all sessions have the completed field
-                app.sessions.forEach(session => {
-                    if (session.completed === undefined) {
-                        session.completed = false;
-                    }
-                });
+                ensureSessionsCompleted(app.sessions);
                 app.routines = Array.isArray(parsed.routines) ? parsed.routines : [];
                 const baseProfile = createDefaultProfile();
                 const storedProfile = (parsed.profile && typeof parsed.profile === 'object') ? parsed.profile : {};
                 app.profile = {
                     ...baseProfile,
-                    ...storedProfile
+                    ...storedProfile,
+                    avatarStyle: storedProfile.avatarStyle || 'avataaars',
+                    avatarSeed: storedProfile.avatarSeed || '',
+                    weightHistory: Array.isArray(storedProfile.weightHistory) ? storedProfile.weightHistory : [],
+                    bodyMeasurementsHistory: Array.isArray(storedProfile.bodyMeasurementsHistory) ? storedProfile.bodyMeasurementsHistory : []
                 };
-                // Ensure new avatar fields exist
-                if (!app.profile.avatarStyle) {
-                    app.profile.avatarStyle = 'avataaars';
-                }
-                if (!app.profile.avatarSeed) {
-                    app.profile.avatarSeed = '';
-                }
-                if (!Array.isArray(app.profile.weightHistory)) {
-                    app.profile.weightHistory = [];
-                }
-                if (!Array.isArray(app.profile.bodyMeasurementsHistory)) {
-                    app.profile.bodyMeasurementsHistory = [];
-                }
                 app.notes = Array.isArray(parsed.notes) ? parsed.notes : [];
                 app.prs = (parsed.prs && typeof parsed.prs === 'object') ? parsed.prs : {};
                 app.onerm = (parsed.onerm && typeof parsed.onerm === 'object') ? parsed.onerm : {};
@@ -956,17 +1031,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 app.goals = Array.isArray(parsed.goals) ? parsed.goals : [];
                 app.recentAchievements = Array.isArray(parsed.recentAchievements) ? parsed.recentAchievements : [];
                 app.lastLevel = parsed.lastLevel || 1;
+                app.totalDaysCompleted = parsed.totalDaysCompleted || 0;
+                app.archivedCycles = Array.isArray(parsed.archivedCycles) ? parsed.archivedCycles : [];
             }
 
-            // Save after migration to ensure all sessions have completed field
-            let needsSave = false;
-            app.sessions.forEach(session => {
-                if (session.completed === undefined) {
-                    session.completed = false;
-                    needsSave = true;
-                }
-            });
+            const needsSave = app.sessions.some(session => session.completed === undefined);
             if (needsSave) {
+                ensureSessionsCompleted(app.sessions);
                 await save();
             }
         } catch (error) {
@@ -989,6 +1060,9 @@ document.addEventListener('DOMContentLoaded', () => {
         app.statsPeriod = 'lastWeek';
         app.goals = [];
         app.recentAchievements = [];
+        app.lastLevel = 1;
+        app.totalDaysCompleted = 0;
+        app.archivedCycles = [];
     }
 
     /* =================== Fechas =================== */
@@ -1077,7 +1151,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             updateNav(panelId);
             if (panelId === 'panel-diary') { renderSessions(); }
-            if (panelId === 'panel-stats') { buildStats(); buildChartState(); drawChart(); }
+            if (panelId === 'panel-stats') { 
+                buildStats(); 
+                buildChartState(); 
+                drawChart(); 
+                renderArchivedCycles();
+            }
             if (panelId === 'panel-import') { initWeekSelector(); }
             if (panelId === 'panel-routines') { renderRoutines(); }
             if (panelId === 'panel-profile') { renderProfile(); }
@@ -1266,9 +1345,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear progress cache when sessions change
     const clearProgressCache = () => progressCache.clear();
     function compareSets(prev, curr, setNumber) {
-        const pk = parseFloat(prev.kg) || 0, ck = parseFloat(curr.kg) || 0;
-        const pr = parseReps(prev.reps), cr = parseReps(curr.reps);
-        const pi = parseRIR(prev.rir), ci = parseRIR(curr.rir);
+        const pk = parseFloat(prev.kg) || 0;
+        const ck = parseFloat(curr.kg) || 0;
+        const pr = parseReps(prev.reps);
+        const cr = parseReps(curr.reps);
+        const pi = parseRIR(prev.rir);
+        const ci = parseRIR(curr.rir);
         if (!curr.kg && !curr.reps) return ['Sin datos', 'progress--same'];
         if (ck > pk) return [`+${(ck - pk).toFixed(1)} kg en set ${setNumber}`, 'progress--up'];
         if (ck < pk) return [`-${(pk - ck).toFixed(1)} kg en set ${setNumber}`, 'progress--down'];
@@ -1285,27 +1367,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const emptyState = $('#emptyState');
         if (!container) return;
 
-        // Preserve user's open/closed state of sessions across re-renders
         const prevDetails = Array.from(container.querySelectorAll('details'));
         const prevOpen = new Set();
         prevDetails.forEach(d => {
             if (d.open) {
-                // Store both dayKey and sessionId for backward compatibility
                 if (d.dataset.dayKey) prevOpen.add(d.dataset.dayKey);
                 if (d.dataset.sessionId) prevOpen.add(d.dataset.sessionId);
             }
         });
         const hadPrev = prevDetails.length > 0;
 
-        // Clear cache when rendering sessions
         clearDomCache();
-        
         container.innerHTML = '';
 
-        // Use robust function to check if there are any sessions in the visible week
         const hasSessions = hasSessionsThisWeek();
-
-        // Show "No hay entrenos" message ONLY when there are truly no sessions
         if (!hasSessions) {
             if (emptyState) {
                 emptyState.hidden = false;
@@ -1314,17 +1389,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Hide empty state completely when there are sessions
         if (emptyState) {
             emptyState.hidden = true;
             emptyState.style.display = 'none';
         }
 
-        // Get and render all sessions for the visible week
         const week = getWeekSessions();
-
-        // Sort sessions: non-completed first, completed at the end
-        // Within same completion status, sort ascending by date
         const sortedSessions = [...week].sort((a, b) => {
             const aCompleted = !!a.completed;
             const bCompleted = !!b.completed;
@@ -1332,29 +1402,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return parseLocalDate(a.date) - parseLocalDate(b.date);
         });
 
-        // Find the current day (first non-completed session)
         const currentDayId = sortedSessions.find(s => !s.completed)?.id || null;
-
-        // Use DocumentFragment for better performance when adding multiple elements
         const fragment = document.createDocumentFragment();
-
-        // Render each session as its own day (collapsible <details> element)
         sortedSessions.forEach(session => {
             const dayKey = toLocalISO(parseLocalDate(session.date));
             const sessionId = session.id;
 
             const details = document.createElement('details');
             details.className = 'day-panel card pop';
-            // Store dayKey and sessionId so we can restore open state later
             details.dataset.dayKey = dayKey;
             details.dataset.sessionId = sessionId;
 
-            // Only open the current day (first non-completed), or restore user's manual state
             if (hadPrev) {
-                // Preserve user's manual open/close state
                 details.open = prevOpen.has(dayKey) || prevOpen.has(sessionId);
             } else {
-                // Only open the current day (first non-completed session)
                 details.open = sessionId === currentDayId;
             }
 
@@ -1387,15 +1448,12 @@ document.addEventListener('DOMContentLoaded', () => {
             dayBody.style.gap = '8px';
             dayBody.style.padding = '10px';
 
-            // Render the session card
             const card = $('#tpl-session').content.firstElementChild.cloneNode(true);
             card.dataset.id = session.id;
             card.classList.toggle('completed', !!session.completed);
             card.querySelector('.session__title').textContent = session.name;
-            card.querySelector('.session__date').textContent = new Date(session.date).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
             const dateEl = card.querySelector('.session__date');
             if (dateEl) {
-                dateEl.textContent = '';
                 dateEl.style.display = 'none';
             }
             const btnComplete = card.querySelector('.js-complete');
@@ -1408,15 +1466,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const body = card.querySelector('.session__body');
-            // Defer exercise rendering until session is actually opened
-            // Store exercises data for lazy rendering
             const exercisesData = session.exercises || [];
             const exercisesContainer = document.createElement('div');
             exercisesContainer.className = 'exercises-lazy-container';
             exercisesContainer.style.display = 'none';
             body.appendChild(exercisesContainer);
             
-            // Render exercises only when details opens
             let exercisesRendered = false;
             const renderExercisesLazy = () => {
                 if (exercisesRendered) return;
@@ -1427,25 +1482,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             };
             
-            // Store render function on details element
             details._renderExercises = renderExercisesLazy;
 
-            // Move the "Añadir ejercicio" button to the end of the session body
             const addExBtn = card.querySelector('.js-add-ex');
-            if (addExBtn && body) {
+            if (addExBtn) {
                 addExBtn.classList.remove('btn--mobile');
-                // Append to exercises container so it appears after exercises
                 exercisesContainer.appendChild(addExBtn);
             }
 
-            // Initialize edit UI state
             updateSessionEditUI(session.id);
 
             dayBody.appendChild(card);
             details.appendChild(dayBody);
             fragment.appendChild(details);
-
-            // Add toggle event listener - optimized for performance
             let toggleTimeout;
             details.addEventListener('toggle', function () {
                 if (toggleTimeout) cancelAnimationFrame(toggleTimeout);
@@ -1478,10 +1527,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
-            // Trigger animation and lazy render on initial open
             if (details.open) {
                 requestAnimationFrame(() => {
-                    // Render exercises immediately if already open
                     if (details._renderExercises) {
                         details._renderExercises();
                         delete details._renderExercises;
@@ -1494,7 +1541,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Append all elements at once for better performance
         container.appendChild(fragment);
     }
     function renderExercise(session, ex) {
@@ -1551,6 +1597,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Insert confirmation buttons after input
                 input.parentElement.insertBefore(confirmContainer, input.nextSibling);
 
+                const createNameElement = (name) => {
+                    const el = document.createElement('div');
+                    el.className = 'exercise__name';
+                    el.textContent = name;
+                    el.style.cursor = 'pointer';
+                    el.title = 'Clic para editar';
+                    return el;
+                };
+
                 const cleanup = () => {
                     confirmContainer.remove();
                     isEditing = false;
@@ -1560,17 +1615,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     const newName = input.value.trim();
                     if (newName && newName !== originalName) {
                         if (updateExerciseName(session.id, ex.id, newName, originalName)) {
-                            // Update the name element with new name
-                            const newNameEl = document.createElement('div');
-                            newNameEl.className = 'exercise__name';
-                            newNameEl.textContent = newName;
-                            newNameEl.style.cursor = 'pointer';
-                            newNameEl.title = 'Clic para editar';
+                            const newNameEl = createNameElement(newName);
                             input.replaceWith(newNameEl);
                             makeEditable(newNameEl);
                             cleanup();
                         } else {
-                            // If update failed, restore original
                             cancelChanges();
                         }
                     } else {
@@ -1579,11 +1628,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
 
                 const cancelChanges = () => {
-                    const newNameEl = document.createElement('div');
-                    newNameEl.className = 'exercise__name';
-                    newNameEl.textContent = originalName;
-                    newNameEl.style.cursor = 'pointer';
-                    newNameEl.title = 'Clic para editar';
+                    const newNameEl = createNameElement(originalName);
                     input.replaceWith(newNameEl);
                     makeEditable(newNameEl);
                     cleanup();
@@ -1611,12 +1656,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // Don't close on blur if clicking on buttons
                 input.addEventListener('blur', (e) => {
-                    // Delay to allow button clicks to register
                     setTimeout(() => {
                         if (!confirmContainer.contains(document.activeElement) && document.activeElement !== input) {
-                            // Only cancel if focus moved outside the edit area
                             if (!confirmContainer.contains(e.relatedTarget)) {
                                 cancelChanges();
                             }
@@ -1647,7 +1689,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const upBtn = document.createElement('button');
                 upBtn.className = 'btn btn--ghost btn--small exercise-reorder-btn exercise-reorder-up';
-                upBtn.innerHTML = ''; // Empty - triangle shown via CSS ::after
                 upBtn.setAttribute('aria-label', 'Mover ejercicio arriba');
                 upBtn.dataset.sessionId = session.id;
                 upBtn.dataset.exId = ex.id;
@@ -1655,45 +1696,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const downBtn = document.createElement('button');
                 downBtn.className = 'btn btn--ghost btn--small exercise-reorder-btn exercise-reorder-down';
-                downBtn.innerHTML = ''; // Empty - triangle shown via CSS ::after
                 downBtn.setAttribute('aria-label', 'Mover ejercicio abajo');
                 downBtn.dataset.sessionId = session.id;
                 downBtn.dataset.exId = ex.id;
                 downBtn.dataset.direction = 'down';
 
-                // Check if this is the first or last exercise
                 const currentIndex = (session.exercises || []).findIndex(e => e.id === ex.id);
-                if (currentIndex === 0) {
-                    upBtn.disabled = true;
-                    upBtn.style.opacity = '0.3';
-                    upBtn.style.cursor = 'not-allowed';
-                }
-                if (currentIndex === exerciseCount - 1) {
-                    downBtn.disabled = true;
-                    downBtn.style.opacity = '0.3';
-                    downBtn.style.cursor = 'not-allowed';
-                }
+                const setButtonDisabled = (btn, disabled) => {
+                    btn.disabled = disabled;
+                    if (disabled) {
+                        btn.style.opacity = '0.3';
+                        btn.style.cursor = 'not-allowed';
+                    }
+                };
+                setButtonDisabled(upBtn, currentIndex === 0);
+                setButtonDisabled(downBtn, currentIndex === exerciseCount - 1);
 
-                upBtn.addEventListener('click', (e) => {
+                const handleMove = (direction) => (e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    moveExercise(session.id, ex.id, 'up');
-                });
+                    moveExercise(session.id, ex.id, direction);
+                };
+                upBtn.addEventListener('click', handleMove('up'));
+                downBtn.addEventListener('click', handleMove('down'));
 
-                downBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    moveExercise(session.id, ex.id, 'down');
-                });
-
-                // Insert arrows at the beginning of the buttons container
                 buttonsContainer.insertBefore(upBtn, buttonsContainer.firstChild);
                 buttonsContainer.insertBefore(downBtn, buttonsContainer.firstChild);
             }
 
             const noteBtn = document.createElement('button');
             noteBtn.className = 'exercise-note-btn';
-            noteBtn.type = 'button';
             const hasNote = getExerciseNote(session.id, ex.id);
             if (hasNote) {
                 noteBtn.classList.add('has-note');
@@ -1708,20 +1740,18 @@ document.addEventListener('DOMContentLoaded', () => {
             headEl.appendChild(noteBtn);
         }
 
-        // Render mobile cards
         const mobileContainer = block.querySelector('.sets-container');
-        (ex.sets || []).forEach(set => mobileContainer.appendChild(renderSetCard(session, ex, set)));
-
-        // Render desktop table
         const desktopTable = block.querySelector('.sets');
-        (ex.sets || []).forEach(set => desktopTable.appendChild(renderSet(session, ex, set)));
+        const sets = ex.sets || [];
+        sets.forEach(set => {
+            mobileContainer.appendChild(renderSetCard(session, ex, set));
+            desktopTable.appendChild(renderSet(session, ex, set));
+        });
 
-        // Display exercise note if exists
         const note = getExerciseNote(session.id, ex.id);
         if (note) {
             const noteDisplay = document.createElement('div');
             noteDisplay.className = 'exercise-note-display';
-            // Preserve line breaks in note display
             const noteText = escapeHtml(note).replace(/\n/g, '<br>');
             noteDisplay.innerHTML = `
                 <div class="exercise-note-text">${noteText}</div>
@@ -1749,8 +1779,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (title) title.textContent = `Nota: ${exerciseName}`;
         if (textarea) textarea.value = currentNote || '';
-
-        // Store current session and exercise IDs for save handler
         dialog.dataset.sessionId = sessionId;
         dialog.dataset.exId = exId;
 
@@ -1836,25 +1864,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge - defer progress calculation for better performance
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
-            // Show loading state first, then calculate
             progressEl.innerHTML = '<span class="progress--same">...</span>';
-            // Defer expensive progress calculation
             requestAnimationFrame(() => {
+                const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
                 let progressHTML = progressText(session, ex, set);
                 if (set.isPR) {
-                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
                     progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
                 }
                 progressEl.innerHTML = progressHTML;
             });
         }
 
-        // Calculate and display 1RM - defer expensive calculation
         if (set.kg && set.reps) {
-            // Use requestAnimationFrame to defer calculation
             requestAnimationFrame(() => {
                 const onerm = calculate1RM(set.kg, set.reps);
                 if (onerm) {
@@ -1888,10 +1911,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Show selection, hide running timer and completed state
-        $('#timerSelection').style.display = 'block';
-        $('#timerRunning').style.display = 'none';
-        $('#timerCompleted').style.display = 'none';
-        $('#timerCancel').style.display = 'none';
+        const timerEls = {
+            selection: $('#timerSelection'),
+            running: $('#timerRunning'),
+            completed: $('#timerCompleted'),
+            cancel: $('#timerCancel')
+        };
+        timerEls.selection.style.display = 'block';
+        timerEls.running.style.display = 'none';
+        timerEls.completed.style.display = 'none';
+        timerEls.cancel.style.display = 'none';
 
         restTimerDialog.showModal();
     }
@@ -1901,11 +1930,11 @@ document.addEventListener('DOMContentLoaded', () => {
         restTimerDialog = $('#restTimerDialog');
         if (!restTimerDialog) return;
 
-        // Hide selection and completed state, show running timer
-        $('#timerSelection').style.display = 'none';
-        $('#timerRunning').style.display = 'block';
-        $('#timerCompleted').style.display = 'none';
-        $('#timerCancel').style.display = 'block';
+        const timerEls = getTimerElements();
+        timerEls.selection.style.display = 'none';
+        timerEls.running.style.display = 'block';
+        timerEls.completed.style.display = 'none';
+        timerEls.cancel.style.display = 'block';
 
         // Update display immediately
         updateTimerDisplay();
@@ -1923,12 +1952,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(restTimerInterval);
                 restTimerInterval = null;
 
-                // Hide running timer, show completed state
-                $('#timerRunning').style.display = 'none';
-                $('#timerCompleted').style.display = 'block';
-                $('#timerCancel').style.display = 'none';
+                const timerEls = getTimerElements();
+                timerEls.running.style.display = 'none';
+                timerEls.completed.style.display = 'block';
+                timerEls.cancel.style.display = 'none';
 
-                // Close dialog after 2 seconds
                 setTimeout(() => {
                     if (restTimerDialog) {
                         restTimerDialog.close();
@@ -3568,15 +3596,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Calcular días completados (sesiones completadas)
     function getCompletedDays() {
+        // Include archived days in the count
+        const archivedDays = app.totalDaysCompleted || 0;
+        
+        // Count current cycle days
         const completedSessions = app.sessions.filter(s => s.completed === true);
-        // Contar días únicos con sesiones completadas
         const uniqueDays = new Set();
         completedSessions.forEach(s => {
             if (s.date) {
                 uniqueDays.add(s.date);
             }
         });
-        return uniqueDays.size;
+        
+        return archivedDays + uniqueDays.size;
     }
 
     // Determinar el nivel actual basado en días completados
@@ -4491,6 +4523,132 @@ document.addEventListener('DOMContentLoaded', () => {
             avgRir: rirCount ? (rirSum / rirCount) : 0,
             sessionCount
         };
+    }
+
+    function archiveCurrentCycle() {
+        if (app.sessions.length === 0) {
+            toast('No hay sesiones para archivar', 'warn');
+            return;
+        }
+        
+        const cycleName = prompt('Nombre del ciclo (opcional):', `Ciclo ${new Date().toLocaleDateString('es-ES')}`);
+        
+        // Calculate current cycle days (only from current sessions, not archived)
+        const completedSessions = app.sessions.filter(s => s.completed === true);
+        const uniqueDays = new Set();
+        completedSessions.forEach(s => {
+            if (s.date) {
+                uniqueDays.add(s.date);
+            }
+        });
+        const currentCycleDays = uniqueDays.size;
+        
+        // Save current level before archiving
+        const currentLevel = app.lastLevel || 1;
+        
+        const archivedCycle = {
+            id: uuid(),
+            name: cycleName || `Ciclo ${new Date().toLocaleDateString('es-ES')}`,
+            archivedAt: new Date().toISOString(),
+            sessions: JSON.parse(JSON.stringify(app.sessions)),
+            prs: JSON.parse(JSON.stringify(app.prs || {})),
+            onerm: JSON.parse(JSON.stringify(app.onerm || {})),
+            achievements: JSON.parse(JSON.stringify(app.achievements || [])),
+            streak: JSON.parse(JSON.stringify(app.streak || { current: 0, lastDate: null })),
+            weeklyGoal: JSON.parse(JSON.stringify(app.weeklyGoal || { target: 3, current: 0 })),
+            lastLevel: currentLevel,
+            daysCompleted: currentCycleDays
+        };
+        
+        app.archivedCycles.push(archivedCycle);
+        
+        // Reset current cycle but keep level and accumulate days completed
+        app.sessions = [];
+        app.prs = {};
+        app.onerm = {};
+        app.achievements = [];
+        app.streak = { current: 0, lastDate: null };
+        app.weeklyGoal = { target: 3, current: 0 };
+        // Keep level - it accumulates across cycles
+        // Add current cycle days to total
+        if (!app.totalDaysCompleted) app.totalDaysCompleted = 0;
+        app.totalDaysCompleted += currentCycleDays;
+        
+        save();
+        refresh({ preserveTab: true });
+        renderArchivedCycles();
+        toast('Ciclo archivado correctamente', 'ok');
+    }
+    
+    function resumeArchivedCycle(cycleId) {
+        const cycle = app.archivedCycles.find(c => c.id === cycleId);
+        if (!cycle) {
+            toast('Ciclo no encontrado', 'warn');
+            return;
+        }
+        
+        if (app.sessions.length > 0) {
+            const confirmResume = confirm('¿Archivar el ciclo actual antes de retomar este ciclo? Si cancelas, se perderán los datos del ciclo actual.');
+            if (confirmResume) {
+                archiveCurrentCycle();
+            } else {
+                return;
+            }
+        }
+        
+        // Restore cycle data
+        app.sessions = JSON.parse(JSON.stringify(cycle.sessions));
+        app.prs = JSON.parse(JSON.stringify(cycle.prs));
+        app.onerm = JSON.parse(JSON.stringify(cycle.onerm));
+        app.achievements = JSON.parse(JSON.stringify(cycle.achievements));
+        app.streak = JSON.parse(JSON.stringify(cycle.streak));
+        app.weeklyGoal = JSON.parse(JSON.stringify(cycle.weeklyGoal));
+        
+        // Restore level and subtract archived days from total
+        const archivedDays = cycle.daysCompleted || 0;
+        if (app.totalDaysCompleted >= archivedDays) {
+            app.totalDaysCompleted -= archivedDays;
+        }
+        // Keep the higher level between current and archived
+        app.lastLevel = Math.max(app.lastLevel || 1, cycle.lastLevel || 1);
+        
+        // Remove from archived cycles
+        app.archivedCycles = app.archivedCycles.filter(c => c.id !== cycleId);
+        
+        save();
+        refresh({ preserveTab: true });
+        renderArchivedCycles();
+        toast('Ciclo restaurado correctamente', 'ok');
+    }
+    
+    function renderArchivedCycles() {
+        const container = $('#archivedCyclesList');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        if (app.archivedCycles.length === 0) {
+            return;
+        }
+        
+        app.archivedCycles.forEach(cycle => {
+            const btn = document.createElement('button');
+            btn.className = 'btn btn--ghost';
+            btn.type = 'button';
+            const date = new Date(cycle.archivedAt).toLocaleDateString('es-ES', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            btn.textContent = `📂 ${cycle.name} (${date})`;
+            btn.title = `Retomar ciclo: ${cycle.name}`;
+            btn.addEventListener('click', () => {
+                if (confirm(`¿Retomar el ciclo "${cycle.name}"? Esto restaurará todas las sesiones y estadísticas de ese ciclo.`)) {
+                    resumeArchivedCycle(cycle.id);
+                }
+            });
+            container.appendChild(btn);
+        });
     }
 
     // Función buildStats modificada - usa los mismos filtros compartidos que drawChart
@@ -5964,7 +6122,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (deleteExerciseBtn) {
                     ev.preventDefault();
                     const ex = deleteExerciseBtn.closest('.routine-exercise');
+                    const dayEl = ex ? ex.closest('.routine-day') : null;
                     if (ex) ex.remove();
+                    if (dayEl) updateRoutineExerciseReorderButtons(dayEl);
                     return;
                 }
                 const deleteSetBtn = ev.target.closest('.js-delete-routine-set');
@@ -5974,6 +6134,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const setEl = deleteSetBtn.closest('.routine-set');
                     if (setEl) setEl.remove();
                     updateRoutineSetIndexes(ex);
+                    return;
+                }
+                const reorderBtn = ev.target.closest('.routine-exercise-reorder-btn');
+                if (reorderBtn) {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const exId = reorderBtn.dataset.exId;
+                    const direction = reorderBtn.dataset.direction;
+                    if (exId && direction) {
+                        moveRoutineExercise(exId, direction);
+                    }
+                    return;
                 }
             });
         }
@@ -6451,6 +6623,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (calculateBMRBtn) {
             calculateBMRBtn.addEventListener('click', handleBMRCalculate);
         }
+
+        // Archive cycle button
+        const archiveCycleBtn = $('#archiveCycleBtn');
+        if (archiveCycleBtn) {
+            archiveCycleBtn.addEventListener('click', () => {
+                if (confirm('¿Archivar el ciclo actual? Esto guardará todas tus sesiones y estadísticas, y reiniciará el ciclo actual.')) {
+                    archiveCurrentCycle();
+                }
+            });
+        }
+        
+        // Initial render of archived cycles
+        renderArchivedCycles();
 
         const addNoteBtn = document.getElementById('addNote');
         if (addNoteBtn) {
