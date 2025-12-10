@@ -1269,6 +1269,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return parseLocalDate(a.date) - parseLocalDate(b.date);
         });
 
+        // Find the current day (first non-completed session)
+        const currentDayId = sortedSessions.find(s => !s.completed)?.id || null;
+
+        // Use DocumentFragment for better performance when adding multiple elements
+        const fragment = document.createDocumentFragment();
+
         // Render each session as its own day (collapsible <details> element)
         sortedSessions.forEach(session => {
             const dayKey = toLocalISO(parseLocalDate(session.date));
@@ -1280,11 +1286,13 @@ document.addEventListener('DOMContentLoaded', () => {
             details.dataset.dayKey = dayKey;
             details.dataset.sessionId = sessionId;
 
-            // Restore previous user state if available; otherwise open non-completed sessions by default
+            // Only open the current day (first non-completed), or restore user's manual state
             if (hadPrev) {
+                // Preserve user's manual open/close state
                 details.open = prevOpen.has(dayKey) || prevOpen.has(sessionId);
             } else {
-                details.open = !session.completed;
+                // Only open the current day (first non-completed session)
+                details.open = sessionId === currentDayId;
             }
 
             const summary = document.createElement('summary');
@@ -1348,41 +1356,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
             dayBody.appendChild(card);
             details.appendChild(dayBody);
-            container.appendChild(details);
+            fragment.appendChild(details);
 
             // Add toggle event listener to trigger animation each time
             details.addEventListener('toggle', function () {
-                if (this.open) {
-                    // Remove animation class first to reset
+                requestAnimationFrame(() => {
                     const sessionCard = this.querySelector('.session.card');
                     if (sessionCard) {
-                        sessionCard.classList.remove('animate-in');
-                        // Force reflow to reset animation
-                        void sessionCard.offsetWidth;
-                        // Add class to trigger animation
-                        setTimeout(() => {
-                            sessionCard.classList.add('animate-in');
-                        }, 10);
+                        if (this.open) {
+                            // Remove animation class first to reset
+                            sessionCard.classList.remove('animate-in');
+                            // Force reflow to reset animation
+                            void sessionCard.offsetWidth;
+                            // Add class to trigger animation
+                            requestAnimationFrame(() => {
+                                sessionCard.classList.add('animate-in');
+                            });
+                        } else {
+                            // Remove animation class when closing
+                            sessionCard.classList.remove('animate-in');
+                        }
                     }
-                } else {
-                    // Remove animation class when closing
-                    const sessionCard = this.querySelector('.session.card');
-                    if (sessionCard) {
-                        sessionCard.classList.remove('animate-in');
-                    }
-                }
+                });
             });
 
             // Trigger animation on initial open
             if (details.open) {
-                setTimeout(() => {
+                requestAnimationFrame(() => {
                     const sessionCard = details.querySelector('.session.card');
                     if (sessionCard) {
                         sessionCard.classList.add('animate-in');
                     }
-                }, 50);
+                });
             }
         });
+
+        // Append all elements at once for better performance
+        container.appendChild(fragment);
     }
     function renderExercise(session, ex) {
         const block = $('#tpl-exercise').content.firstElementChild.cloneNode(true);
@@ -3184,6 +3194,111 @@ document.addEventListener('DOMContentLoaded', () => {
         createLevelUpNotification(session.name);
     }
 
+    function triggerLevelUpAnimation(newLevel, oldLevel) {
+        // Check if user prefers reduced motion
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+
+        // Remove existing level up overlay if any
+        const existing = $('#levelUpOverlay');
+        if (existing) {
+            existing.remove();
+        }
+
+        // Create overlay container
+        const overlay = document.createElement('div');
+        overlay.id = 'levelUpOverlay';
+        overlay.className = 'level-up-overlay';
+        
+        // Get level color
+        const levelColor = newLevel.color || '#5ea9ff';
+        
+        // Create content
+        overlay.innerHTML = `
+            <div class="level-up-container">
+                <div class="level-up-burst" style="--level-color: ${levelColor}"></div>
+                <div class="level-up-content-wrapper">
+                    <div class="level-up-number" style="color: ${levelColor}">${newLevel.level}</div>
+                    <div class="level-up-icon" style="color: ${levelColor}">${newLevel.icon}</div>
+                    <div class="level-up-title" style="color: ${levelColor}">${newLevel.name}</div>
+                    <div class="level-up-subtitle">¡NIVEL ALCANZADO!</div>
+                </div>
+                <div class="level-up-particles"></div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Trigger entrance animation
+        requestAnimationFrame(() => {
+            overlay.classList.add('active');
+        });
+
+        // Create confetti particles
+        createLevelUpConfetti(levelColor, newLevel.stage);
+
+        // Add glow effect to body
+        document.body.classList.add('level-up-glow');
+        setTimeout(() => {
+            document.body.classList.remove('level-up-glow');
+        }, 2000);
+
+        // Remove overlay after animation
+        setTimeout(() => {
+            overlay.classList.remove('active');
+            setTimeout(() => {
+                if (overlay.parentNode) {
+                    overlay.remove();
+                }
+            }, 1000);
+        }, 3000);
+    }
+
+    function createLevelUpConfetti(color, stage) {
+        const colors = [color];
+        // Add complementary colors based on stage
+        if (stage === 'human') colors.push('#7ED957', '#4CAF50');
+        else if (stage === 'superior') colors.push('#42A5F5', '#1E88E5');
+        else if (stage === 'superhuman') colors.push('#FFC74D', '#FFB300');
+        else if (stage === 'divine') colors.push('#AB47BC', '#8E24AA');
+        else if (stage === 'abyssal') colors.push('#E53935', '#B71C1C');
+        else colors.push('#5ea9ff', '#0080e9');
+
+        const particleCount = 100;
+        const container = document.createElement('div');
+        container.className = 'level-up-confetti-container';
+        container.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 10000;';
+        
+        document.body.appendChild(container);
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'level-up-confetti-particle';
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.cssText = `
+                position: absolute;
+                width: ${Math.random() * 8 + 4}px;
+                height: ${Math.random() * 8 + 4}px;
+                background: ${randomColor};
+                left: ${Math.random() * 100}%;
+                top: -10px;
+                border-radius: ${Math.random() > 0.5 ? '50%' : '0'};
+                opacity: ${Math.random() * 0.5 + 0.5};
+                animation: levelUpConfettiFall ${Math.random() * 2 + 2}s linear forwards;
+                animation-delay: ${Math.random() * 0.5}s;
+            `;
+            container.appendChild(particle);
+        }
+
+        // Remove container after animation
+        setTimeout(() => {
+            if (container.parentNode) {
+                container.remove();
+            }
+        }, 4000);
+    }
+
     /* =================== LEVEL SYSTEM =================== */
     
     // Definición de los 50 niveles
@@ -3496,6 +3611,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (currentLevel.level > app.lastLevel) {
             // El usuario subió de nivel
+            const oldLevel = app.lastLevel;
             app.lastLevel = currentLevel.level;
             
             // Si alcanzó el nivel 50 por primera vez, guardar la fecha
@@ -3538,6 +3654,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Mostrar mensaje motivador
             const messages = MOTIVATIONAL_MESSAGES[currentLevel.stage] || MOTIVATIONAL_MESSAGES.human;
             const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+            
+            // Trigger level up animation
+            triggerLevelUpAnimation(currentLevel, oldLevel);
             
             // Crear notificación especial
             toast(`🎉 ¡Nivel ${currentLevel.level} alcanzado! ${currentLevel.name}`, 'ok');
@@ -3891,7 +4010,48 @@ document.addEventListener('DOMContentLoaded', () => {
             app.goals.forEach(goal => updateGoalProgress(goal));
             save();
         }
+        
         refresh();
+        
+        // If session was just completed, close it and open the next non-completed session
+        // This must happen AFTER refresh() so the DOM is updated
+        if (s.completed && !wasCompleted) {
+            // Use requestAnimationFrame for smooth DOM updates after refresh
+            requestAnimationFrame(() => {
+                const container = $('#sessions');
+                if (container) {
+                    // Close the completed session
+                    const completedDetails = container.querySelector(`details[data-session-id="${id}"]`);
+                    if (completedDetails) {
+                        completedDetails.open = false;
+                    }
+                    
+                    // Find and open the next non-completed session
+                    const week = getWeekSessions();
+                    const sortedSessions = [...week].sort((a, b) => {
+                        const aCompleted = !!a.completed;
+                        const bCompleted = !!b.completed;
+                        if (aCompleted !== bCompleted) return aCompleted ? 1 : -1;
+                        return parseLocalDate(a.date) - parseLocalDate(b.date);
+                    });
+                    
+                    const nextSession = sortedSessions.find(session => !session.completed && session.id !== id);
+                    if (nextSession) {
+                        // Use requestAnimationFrame for smooth opening
+                        requestAnimationFrame(() => {
+                            const nextDetails = container.querySelector(`details[data-session-id="${nextSession.id}"]`);
+                            if (nextDetails) {
+                                nextDetails.open = true;
+                                // Smooth scroll to the next session
+                                requestAnimationFrame(() => {
+                                    nextDetails.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                });
+                            }
+                        });
+                    }
+                }
+            });
+        }
 
         // Trigger celebration animation if session was just completed (not uncompleted)
         if (s.completed && !wasCompleted) {
