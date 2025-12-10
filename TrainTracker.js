@@ -851,6 +851,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* =================== Persistencia =================== */
     async function save() {
+        // Clear progress cache when data changes
+        clearProgressCache();
         const payload = {
             sessions: app.sessions,
             routines: app.routines,
@@ -1218,22 +1220,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =================== Progreso por set (texto) =================== */
+    // Cache for progress calculations to avoid repeated expensive operations
+    const progressCache = new Map();
+    const getCacheKey = (sessionId, exId, setId) => `${sessionId}-${exId}-${setId}`;
+    
     function progressText(currentSession, currentEx, currentSet) {
-        const currDate = new Date(currentSession.date);
-        const previous = app.sessions
-            .filter(s => new Date(s.date) < currDate)
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
-        for (const s of previous) {
+        // Check cache first
+        const cacheKey = getCacheKey(currentSession.id, currentEx.id, currentSet.id);
+        if (progressCache.has(cacheKey)) {
+            return progressCache.get(cacheKey);
+        }
+        
+        // Optimized: use parsed dates and early exit
+        const currDate = parseLocalDate(currentSession.date);
+        const currentDateNum = currDate.getTime();
+        
+        // Find previous sessions more efficiently - only check sessions before current date
+        // Iterate backwards through sessions (they're usually sorted by date)
+        for (let i = app.sessions.length - 1; i >= 0; i--) {
+            const s = app.sessions[i];
+            const sDate = parseLocalDate(s.date);
+            if (sDate.getTime() >= currentDateNum) continue;
+            
+            // Found a previous session, now find the exercise
             const ex = (s.exercises || []).find(e => e.name === currentEx.name);
             if (!ex) continue;
+            
+            // Find the set with matching set number
             const prevSet = (ex.sets || []).find(st => st.setNumber === currentSet.setNumber);
             if (prevSet && (prevSet.kg || prevSet.reps)) {
+                // Found the most recent previous set, calculate and cache
                 const [txt, cls] = compareSets(prevSet, currentSet, currentSet.setNumber);
-                return `<span class="${cls}">${txt}</span>`;
+                const result = `<span class="${cls}">${txt}</span>`;
+                progressCache.set(cacheKey, result);
+                return result;
             }
         }
-        return '<span class="progress--same">Primera sesión</span>';
+        
+        // No previous set found
+        const result = '<span class="progress--same">Primera sesión</span>';
+        progressCache.set(cacheKey, result);
+        return result;
     }
+    
+    // Clear progress cache when sessions change
+    const clearProgressCache = () => progressCache.clear();
     function compareSets(prev, curr, setNumber) {
         const pk = parseFloat(prev.kg) || 0, ck = parseFloat(curr.kg) || 0;
         const pr = parseReps(prev.reps), cr = parseReps(curr.reps);
@@ -1377,13 +1408,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const body = card.querySelector('.session__body');
-            (session.exercises || []).forEach(ex => body.appendChild(renderExercise(session, ex)));
+            // Defer exercise rendering until session is actually opened
+            // Store exercises data for lazy rendering
+            const exercisesData = session.exercises || [];
+            const exercisesContainer = document.createElement('div');
+            exercisesContainer.className = 'exercises-lazy-container';
+            exercisesContainer.style.display = 'none';
+            body.appendChild(exercisesContainer);
+            
+            // Render exercises only when details opens
+            let exercisesRendered = false;
+            const renderExercisesLazy = () => {
+                if (exercisesRendered) return;
+                exercisesRendered = true;
+                exercisesContainer.style.display = '';
+                exercisesData.forEach(ex => {
+                    exercisesContainer.appendChild(renderExercise(session, ex));
+                });
+            };
+            
+            // Store render function on details element
+            details._renderExercises = renderExercisesLazy;
 
             // Move the "Añadir ejercicio" button to the end of the session body
             const addExBtn = card.querySelector('.js-add-ex');
             if (addExBtn && body) {
                 addExBtn.classList.remove('btn--mobile');
-                body.appendChild(addExBtn);
+                // Append to exercises container so it appears after exercises
+                exercisesContainer.appendChild(addExBtn);
             }
 
             // Initialize edit UI state
@@ -1393,8 +1445,7 @@ document.addEventListener('DOMContentLoaded', () => {
             details.appendChild(dayBody);
             fragment.appendChild(details);
 
-            // Add toggle event listener to trigger animation each time
-            // Optimized for mobile performance
+            // Add toggle event listener - optimized for performance
             let toggleTimeout;
             details.addEventListener('toggle', function () {
                 if (toggleTimeout) cancelAnimationFrame(toggleTimeout);
@@ -1402,6 +1453,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sessionCard = this.querySelector('.session.card');
                     if (sessionCard) {
                         if (this.open) {
+                            // Lazy render exercises only when opening
+                            if (this._renderExercises) {
+                                this._renderExercises();
+                                delete this._renderExercises; // Clean up after first render
+                            }
+                            
                             // Remove animation class first to reset
                             sessionCard.classList.remove('animate-in');
                             // Force reflow only on desktop (expensive on mobile)
@@ -1421,9 +1478,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
-            // Trigger animation on initial open
+            // Trigger animation and lazy render on initial open
             if (details.open) {
                 requestAnimationFrame(() => {
+                    // Render exercises immediately if already open
+                    if (details._renderExercises) {
+                        details._renderExercises();
+                        delete details._renderExercises;
+                    }
                     const sessionCard = details.querySelector('.session.card');
                     if (sessionCard) {
                         sessionCard.classList.add('animate-in');
@@ -1718,28 +1780,36 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge
+        // Add PR badge - defer progress calculation for better performance
         const progressCell = row.querySelector('.progress');
         if (progressCell) {
-            let progressHTML = progressText(session, ex, set);
-            if (set.isPR) {
-                const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
-            }
-            progressCell.innerHTML = progressHTML;
+            // Show loading state first, then calculate
+            progressCell.innerHTML = '<span class="progress--same">...</span>';
+            // Defer expensive progress calculation
+            requestAnimationFrame(() => {
+                let progressHTML = progressText(session, ex, set);
+                if (set.isPR) {
+                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                    progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
+                }
+                progressCell.innerHTML = progressHTML;
+            });
         }
 
-        // Calculate and display 1RM
+        // Calculate and display 1RM - defer expensive calculation
         if (set.kg && set.reps) {
-            const onerm = calculate1RM(set.kg, set.reps);
-            if (onerm) {
-                const onermCell = document.createElement('td');
-                onermCell.className = 'onerm-display';
-                const currentBest = app.onerm[ex.name] || 0;
-                const isPR = onerm > currentBest;
-                onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                row.appendChild(onermCell);
-            }
+            // Use requestAnimationFrame to defer calculation
+            requestAnimationFrame(() => {
+                const onerm = calculate1RM(set.kg, set.reps);
+                if (onerm) {
+                    const onermCell = document.createElement('td');
+                    onermCell.className = 'onerm-display';
+                    const currentBest = app.onerm[ex.name] || 0;
+                    const isPR = onerm > currentBest;
+                    onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                    row.appendChild(onermCell);
+                }
+            });
         }
 
         return row;
@@ -1766,28 +1836,36 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge
+        // Add PR badge - defer progress calculation for better performance
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
-            let progressHTML = progressText(session, ex, set);
-            if (set.isPR) {
-                const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
-            }
-            progressEl.innerHTML = progressHTML;
+            // Show loading state first, then calculate
+            progressEl.innerHTML = '<span class="progress--same">...</span>';
+            // Defer expensive progress calculation
+            requestAnimationFrame(() => {
+                let progressHTML = progressText(session, ex, set);
+                if (set.isPR) {
+                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                    progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
+                }
+                progressEl.innerHTML = progressHTML;
+            });
         }
 
-        // Calculate and display 1RM
+        // Calculate and display 1RM - defer expensive calculation
         if (set.kg && set.reps) {
-            const onerm = calculate1RM(set.kg, set.reps);
-            if (onerm) {
-                const onermDiv = document.createElement('div');
-                onermDiv.className = 'onerm-display';
-                const currentBest = app.onerm[ex.name] || 0;
-                const isPR = onerm > currentBest;
-                onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                card.appendChild(onermDiv);
-            }
+            // Use requestAnimationFrame to defer calculation
+            requestAnimationFrame(() => {
+                const onerm = calculate1RM(set.kg, set.reps);
+                if (onerm) {
+                    const onermDiv = document.createElement('div');
+                    onermDiv.className = 'onerm-display';
+                    const currentBest = app.onerm[ex.name] || 0;
+                    const isPR = onerm > currentBest;
+                    onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                    card.appendChild(onermDiv);
+                }
+            });
         }
 
         return card;
@@ -6993,6 +7071,5 @@ document.addEventListener('DOMContentLoaded', () => {
         if (tdeeValue) tdeeValue.textContent = tdee;
         if (recommendedCaloriesDiv) recommendedCaloriesDiv.textContent = goalText;
     }
-
 
 });
