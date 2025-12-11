@@ -1417,77 +1417,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let inputStateCache = new Map();
     let isRendering = false;
     
-    // Scroll performance optimization
-    let isScrolling = false;
-    let diaryScrollTimeout = null;
-    let pendingCalculations = [];
-    
-    // Track scroll state to pause expensive calculations
-    const diaryPanel = document.getElementById('panel-diary');
-    if (diaryPanel) {
-        diaryPanel.addEventListener('scroll', () => {
-            isScrolling = true;
-            if (diaryScrollTimeout) clearTimeout(diaryScrollTimeout);
-            diaryScrollTimeout = setTimeout(() => {
-                isScrolling = false;
-                // Resume pending calculations after scroll stops
-                processPendingCalculations();
-            }, 150);
-        }, { passive: true });
-    }
-    
-    // Process pending calculations when scroll stops
-    function processPendingCalculations() {
-        if (pendingCalculations.length === 0 || isScrolling) return;
-        
-        // Process in small batches to avoid blocking
-        const batch = pendingCalculations.splice(0, 5);
-        batch.forEach(calc => {
-            try {
-                calc();
-            } catch (e) {
-                console.warn('Error in pending calculation:', e);
-            }
-        });
-        
-        if (pendingCalculations.length > 0) {
-            const scheduleNext = window.requestIdleCallback || ((fn) => setTimeout(fn, 16));
-            scheduleNext(() => processPendingCalculations(), { timeout: 100 });
-        }
-    }
-    
-    // Fallback for requestIdleCallback
-    const scheduleIdle = window.requestIdleCallback || ((callback, options) => {
-        const timeout = (options && options.timeout) ? options.timeout : 50;
-        return setTimeout(callback, timeout);
-    });
-    
-    // IntersectionObserver for lazy loading calculations
-    let calculationObserver = null;
-    function initCalculationObserver() {
-        if (calculationObserver) return;
-        
-        calculationObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && !isScrolling) {
-                    const element = entry.target;
-                    const calcFn = element._pendingCalculation;
-                    if (calcFn) {
-                        delete element._pendingCalculation;
-                        calculationObserver.unobserve(element);
-                        if (!isScrolling) {
-                            scheduleIdle(() => calcFn(), { timeout: 50 });
-                        } else {
-                            pendingCalculations.push(calcFn);
-                        }
-                    }
-                }
-            });
-        }, {
-            rootMargin: '100px', // Start loading 100px before element is visible
-            threshold: 0.01
-        });
-    }
+    // Removed scroll-based optimization - all content loads immediately
 
     function captureInputState() {
         const container = $('#sessions');
@@ -1754,43 +1684,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 exercisesRendered = true;
                 exercisesContainer.style.display = '';
                 
-                // Progressive rendering for mobile - render in smaller batches
-                const isMobile = window.innerWidth < 768;
-                const BATCH_SIZE = isMobile ? 2 : exercisesData.length; // Render 2 exercises at a time on mobile
-                const DELAY_BETWEEN_BATCHES = isMobile ? 50 : 0; // 50ms delay between batches on mobile
-                
-                if (isMobile && exercisesData.length > BATCH_SIZE) {
-                    // Progressive rendering for mobile - pause during scroll
-                    let index = 0;
-                    const renderBatch = () => {
-                        // Pause rendering during active scroll
-                        if (isScrolling) {
-                            setTimeout(renderBatch, 100);
-                            return;
-                        }
-                        
-                        const fragment = document.createDocumentFragment();
-                        const endIndex = Math.min(index + BATCH_SIZE, exercisesData.length);
-                        
-                        for (let i = index; i < endIndex; i++) {
-                            fragment.appendChild(renderExercise(session, exercisesData[i]));
-                        }
-                        exercisesContainer.appendChild(fragment);
-                        
-                        index = endIndex;
-                        if (index < exercisesData.length) {
-                            scheduleIdle(() => renderBatch(), { timeout: 50 });
-                        }
-                    };
-                    renderBatch();
-                } else {
-                    // Desktop or small number of exercises - render all at once
-                    const fragment = document.createDocumentFragment();
-                    exercisesData.forEach(ex => {
-                        fragment.appendChild(renderExercise(session, ex));
-                    });
-                    exercisesContainer.appendChild(fragment);
-                }
+                // Render all exercises at once for immediate complete loading
+                const fragment = document.createDocumentFragment();
+                exercisesData.forEach(ex => {
+                    fragment.appendChild(renderExercise(session, ex));
+                });
+                exercisesContainer.appendChild(fragment);
             };
 
             details._renderExercises = renderExercisesLazy;
@@ -2086,42 +1985,12 @@ document.addEventListener('DOMContentLoaded', () => {
             desktopTable.parentElement.parentElement.style.display = 'none';
             mobileContainer.style.display = '';
 
-            // Progressive rendering for mobile - render sets in smaller batches
-            const SET_BATCH_SIZE = 3; // Render 3 sets at a time
-            const DELAY_BETWEEN_SETS = 30; // 30ms delay between batches
-            
-            if (sets.length > SET_BATCH_SIZE) {
-                // Progressive rendering for mobile - pause during scroll
-                let index = 0;
-                const renderSetBatch = () => {
-                    // Pause rendering during active scroll
-                    if (isScrolling) {
-                        setTimeout(renderSetBatch, 100);
-                        return;
-                    }
-                    
-                    const fragment = document.createDocumentFragment();
-                    const endIndex = Math.min(index + SET_BATCH_SIZE, sets.length);
-                    
-                    for (let i = index; i < endIndex; i++) {
-                        fragment.appendChild(renderSetCard(session, ex, sets[i], i));
-                    }
-                    mobileContainer.appendChild(fragment);
-                    
-                    index = endIndex;
-                    if (index < sets.length) {
-                        scheduleIdle(() => renderSetBatch(), { timeout: 30 });
-                    }
-                };
-                renderSetBatch();
-            } else {
-                // Small number of sets - render all at once
-                const fragment = document.createDocumentFragment();
-                sets.forEach((set, i) => {
-                    fragment.appendChild(renderSetCard(session, ex, set, i));
-                });
-                mobileContainer.appendChild(fragment);
-            }
+            // Render all sets at once for immediate complete loading
+            const fragment = document.createDocumentFragment();
+            sets.forEach((set, i) => {
+                fragment.appendChild(renderSetCard(session, ex, set, i));
+            });
+            mobileContainer.appendChild(fragment);
         }
 
         const note = getExerciseNote(session.id, ex.id);
@@ -2180,51 +2049,39 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge - defer progress calculation for better performance
+        // Add PR badge - defer progress calculation slightly but don't pause during scroll
         const progressCell = row.querySelector('.progress');
         if (progressCell) {
             // Show loading state first, then calculate
             progressCell.innerHTML = '<span class="progress--same">...</span>';
-            // Defer expensive progress calculation - pause during scroll
-            const updateProgress = () => {
-                if (isScrolling) {
-                    pendingCalculations.push(updateProgress);
-                    return;
-                }
-                let progressHTML = progressText(session, ex, set);
-                if (set.isPR) {
-                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                    progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
-                }
-                progressCell.innerHTML = progressHTML;
-            };
-            scheduleIdle(() => {
-                if (!isScrolling) updateProgress();
-                else pendingCalculations.push(updateProgress);
-            }, { timeout: 100 });
+            // Defer calculation slightly to allow DOM to settle, then execute
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    let progressHTML = progressText(session, ex, set);
+                    if (set.isPR) {
+                        const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                        progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
+                    }
+                    progressCell.innerHTML = progressHTML;
+                });
+            });
         }
 
-        // Calculate and display 1RM - defer expensive calculation
+        // Calculate and display 1RM - defer slightly but don't pause during scroll
         if (set.kg && set.reps) {
-            const update1RM = () => {
-                if (isScrolling) {
-                    pendingCalculations.push(update1RM);
-                    return;
-                }
-                const onerm = calculate1RM(set.kg, set.reps);
-                if (onerm) {
-                    const onermCell = document.createElement('td');
-                    onermCell.className = 'onerm-display';
-                    const currentBest = app.onerm[ex.name] || 0;
-                    const isPR = onerm > currentBest;
-                    onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                    row.appendChild(onermCell);
-                }
-            };
-            scheduleIdle(() => {
-                if (!isScrolling) update1RM();
-                else pendingCalculations.push(update1RM);
-            }, { timeout: 150 });
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const onerm = calculate1RM(set.kg, set.reps);
+                    if (onerm) {
+                        const onermCell = document.createElement('td');
+                        onermCell.className = 'onerm-display';
+                        const currentBest = app.onerm[ex.name] || 0;
+                        const isPR = onerm > currentBest;
+                        onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                        row.appendChild(onermCell);
+                    }
+                });
+            });
         }
 
         return row;
@@ -2251,96 +2108,39 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Defer expensive calculations with incremental delays to avoid blocking
-        // This ensures calculations are spread out and don't all execute at once
-        const isMobile = window.innerWidth < 768;
-        const CALC_DELAY = isMobile ? (setIndex * 20) : 0; // Stagger calculations on mobile
-        
+        // Defer expensive calculations slightly but don't pause during scroll
+        // Calculations are deferred to avoid blocking initial render, but execute immediately after
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
             progressEl.innerHTML = '<span class="progress--same">...</span>';
-            
-            // Use IntersectionObserver for lazy loading calculations
-            const updateProgress = () => {
-                if (isScrolling) {
-                    pendingCalculations.push(updateProgress);
-                    return;
-                }
-                
-                const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
-                let progressHTML = progressText(session, ex, set);
-                if (set.isPR) {
-                    progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
-                }
-                progressEl.innerHTML = progressHTML;
-            };
-            
-            // Initialize observer if needed
-            if (!calculationObserver) initCalculationObserver();
-            
-            // Use IntersectionObserver for better scroll performance
-            if (calculationObserver && isMobile) {
-                card._pendingCalculation = updateProgress;
-                calculationObserver.observe(card);
-                } else {
-                    // Desktop or fallback: use delayed execution
-                    if (isMobile && CALC_DELAY > 0) {
-                        setTimeout(() => {
-                            if (!isScrolling) updateProgress();
-                            else pendingCalculations.push(updateProgress);
-                        }, CALC_DELAY);
-                    } else {
-                        scheduleIdle(() => {
-                            if (!isScrolling) updateProgress();
-                            else pendingCalculations.push(updateProgress);
-                        }, { timeout: 100 });
+            // Defer calculation slightly to allow DOM to settle, then execute
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
+                    let progressHTML = progressText(session, ex, set);
+                    if (set.isPR) {
+                        progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
                     }
-                }
+                    progressEl.innerHTML = progressHTML;
+                });
+            });
         }
 
         if (set.kg && set.reps) {
-            const update1RM = () => {
-                if (isScrolling) {
-                    pendingCalculations.push(update1RM);
-                    return;
-                }
-                
-                const onerm = calculate1RM(set.kg, set.reps);
-                if (onerm) {
-                    const onermDiv = document.createElement('div');
-                    onermDiv.className = 'onerm-display';
-                    const currentBest = app.onerm[ex.name] || 0;
-                    const isPR = onerm > currentBest;
-                    onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                    card.appendChild(onermDiv);
-                }
-            };
-            
-            // Use IntersectionObserver for better scroll performance
-            if (calculationObserver && isMobile) {
-                // Store as secondary calculation
-                const originalCalc = card._pendingCalculation;
-                card._pendingCalculation = () => {
-                    if (originalCalc) originalCalc();
-                    update1RM();
-                };
-                if (!calculationObserver.observe) {
-                    calculationObserver.observe(card);
-                }
-                } else {
-                    // Desktop or fallback: use delayed execution
-                    if (isMobile && CALC_DELAY > 0) {
-                        setTimeout(() => {
-                            if (!isScrolling) update1RM();
-                            else pendingCalculations.push(update1RM);
-                        }, CALC_DELAY + 10);
-                    } else {
-                        scheduleIdle(() => {
-                            if (!isScrolling) update1RM();
-                            else pendingCalculations.push(update1RM);
-                        }, { timeout: 150 });
+            // Defer calculation slightly to allow DOM to settle, then execute
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    const onerm = calculate1RM(set.kg, set.reps);
+                    if (onerm) {
+                        const onermDiv = document.createElement('div');
+                        onermDiv.className = 'onerm-display';
+                        const currentBest = app.onerm[ex.name] || 0;
+                        const isPR = onerm > currentBest;
+                        onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                        card.appendChild(onermDiv);
                     }
-                }
+                });
+            });
         }
 
         return card;
