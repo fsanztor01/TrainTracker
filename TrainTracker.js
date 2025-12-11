@@ -1416,6 +1416,78 @@ document.addEventListener('DOMContentLoaded', () => {
     // Cache for input state preservation during re-renders
     let inputStateCache = new Map();
     let isRendering = false;
+    
+    // Scroll performance optimization
+    let isScrolling = false;
+    let diaryScrollTimeout = null;
+    let pendingCalculations = [];
+    
+    // Track scroll state to pause expensive calculations
+    const diaryPanel = document.getElementById('panel-diary');
+    if (diaryPanel) {
+        diaryPanel.addEventListener('scroll', () => {
+            isScrolling = true;
+            if (diaryScrollTimeout) clearTimeout(diaryScrollTimeout);
+            diaryScrollTimeout = setTimeout(() => {
+                isScrolling = false;
+                // Resume pending calculations after scroll stops
+                processPendingCalculations();
+            }, 150);
+        }, { passive: true });
+    }
+    
+    // Process pending calculations when scroll stops
+    function processPendingCalculations() {
+        if (pendingCalculations.length === 0 || isScrolling) return;
+        
+        // Process in small batches to avoid blocking
+        const batch = pendingCalculations.splice(0, 5);
+        batch.forEach(calc => {
+            try {
+                calc();
+            } catch (e) {
+                console.warn('Error in pending calculation:', e);
+            }
+        });
+        
+        if (pendingCalculations.length > 0) {
+            const scheduleNext = window.requestIdleCallback || ((fn) => setTimeout(fn, 16));
+            scheduleNext(() => processPendingCalculations(), { timeout: 100 });
+        }
+    }
+    
+    // Fallback for requestIdleCallback
+    const scheduleIdle = window.requestIdleCallback || ((callback, options) => {
+        const timeout = (options && options.timeout) ? options.timeout : 50;
+        return setTimeout(callback, timeout);
+    });
+    
+    // IntersectionObserver for lazy loading calculations
+    let calculationObserver = null;
+    function initCalculationObserver() {
+        if (calculationObserver) return;
+        
+        calculationObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !isScrolling) {
+                    const element = entry.target;
+                    const calcFn = element._pendingCalculation;
+                    if (calcFn) {
+                        delete element._pendingCalculation;
+                        calculationObserver.unobserve(element);
+                        if (!isScrolling) {
+                            scheduleIdle(() => calcFn(), { timeout: 50 });
+                        } else {
+                            pendingCalculations.push(calcFn);
+                        }
+                    }
+                }
+            });
+        }, {
+            rootMargin: '100px', // Start loading 100px before element is visible
+            threshold: 0.01
+        });
+    }
 
     function captureInputState() {
         const container = $('#sessions');
@@ -1688,9 +1760,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const DELAY_BETWEEN_BATCHES = isMobile ? 50 : 0; // 50ms delay between batches on mobile
                 
                 if (isMobile && exercisesData.length > BATCH_SIZE) {
-                    // Progressive rendering for mobile
+                    // Progressive rendering for mobile - pause during scroll
                     let index = 0;
                     const renderBatch = () => {
+                        // Pause rendering during active scroll
+                        if (isScrolling) {
+                            setTimeout(renderBatch, 100);
+                            return;
+                        }
+                        
                         const fragment = document.createDocumentFragment();
                         const endIndex = Math.min(index + BATCH_SIZE, exercisesData.length);
                         
@@ -1701,7 +1779,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         index = endIndex;
                         if (index < exercisesData.length) {
-                            setTimeout(renderBatch, DELAY_BETWEEN_BATCHES);
+                            scheduleIdle(() => renderBatch(), { timeout: 50 });
                         }
                     };
                     renderBatch();
@@ -2013,9 +2091,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const DELAY_BETWEEN_SETS = 30; // 30ms delay between batches
             
             if (sets.length > SET_BATCH_SIZE) {
-                // Progressive rendering for mobile
+                // Progressive rendering for mobile - pause during scroll
                 let index = 0;
                 const renderSetBatch = () => {
+                    // Pause rendering during active scroll
+                    if (isScrolling) {
+                        setTimeout(renderSetBatch, 100);
+                        return;
+                    }
+                    
                     const fragment = document.createDocumentFragment();
                     const endIndex = Math.min(index + SET_BATCH_SIZE, sets.length);
                     
@@ -2026,7 +2110,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     index = endIndex;
                     if (index < sets.length) {
-                        setTimeout(renderSetBatch, DELAY_BETWEEN_SETS);
+                        scheduleIdle(() => renderSetBatch(), { timeout: 30 });
                     }
                 };
                 renderSetBatch();
@@ -2101,21 +2185,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (progressCell) {
             // Show loading state first, then calculate
             progressCell.innerHTML = '<span class="progress--same">...</span>';
-            // Defer expensive progress calculation
-            requestAnimationFrame(() => {
+            // Defer expensive progress calculation - pause during scroll
+            const updateProgress = () => {
+                if (isScrolling) {
+                    pendingCalculations.push(updateProgress);
+                    return;
+                }
                 let progressHTML = progressText(session, ex, set);
                 if (set.isPR) {
                     const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
                     progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
                 }
                 progressCell.innerHTML = progressHTML;
-            });
+            };
+            scheduleIdle(() => {
+                if (!isScrolling) updateProgress();
+                else pendingCalculations.push(updateProgress);
+            }, { timeout: 100 });
         }
 
         // Calculate and display 1RM - defer expensive calculation
         if (set.kg && set.reps) {
-            // Use requestAnimationFrame to defer calculation
-            requestAnimationFrame(() => {
+            const update1RM = () => {
+                if (isScrolling) {
+                    pendingCalculations.push(update1RM);
+                    return;
+                }
                 const onerm = calculate1RM(set.kg, set.reps);
                 if (onerm) {
                     const onermCell = document.createElement('td');
@@ -2125,7 +2220,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
                     row.appendChild(onermCell);
                 }
-            });
+            };
+            scheduleIdle(() => {
+                if (!isScrolling) update1RM();
+                else pendingCalculations.push(update1RM);
+            }, { timeout: 150 });
         }
 
         return row;
@@ -2160,8 +2259,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
             progressEl.innerHTML = '<span class="progress--same">...</span>';
-            // Use setTimeout with incremental delay instead of requestAnimationFrame for mobile
+            
+            // Use IntersectionObserver for lazy loading calculations
             const updateProgress = () => {
+                if (isScrolling) {
+                    pendingCalculations.push(updateProgress);
+                    return;
+                }
+                
                 const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
                 let progressHTML = progressText(session, ex, set);
                 if (set.isPR) {
@@ -2170,15 +2275,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 progressEl.innerHTML = progressHTML;
             };
             
-            if (isMobile && CALC_DELAY > 0) {
-                setTimeout(updateProgress, CALC_DELAY);
-            } else {
-                requestAnimationFrame(updateProgress);
-            }
+            // Initialize observer if needed
+            if (!calculationObserver) initCalculationObserver();
+            
+            // Use IntersectionObserver for better scroll performance
+            if (calculationObserver && isMobile) {
+                card._pendingCalculation = updateProgress;
+                calculationObserver.observe(card);
+                } else {
+                    // Desktop or fallback: use delayed execution
+                    if (isMobile && CALC_DELAY > 0) {
+                        setTimeout(() => {
+                            if (!isScrolling) updateProgress();
+                            else pendingCalculations.push(updateProgress);
+                        }, CALC_DELAY);
+                    } else {
+                        scheduleIdle(() => {
+                            if (!isScrolling) updateProgress();
+                            else pendingCalculations.push(updateProgress);
+                        }, { timeout: 100 });
+                    }
+                }
         }
 
         if (set.kg && set.reps) {
             const update1RM = () => {
+                if (isScrolling) {
+                    pendingCalculations.push(update1RM);
+                    return;
+                }
+                
                 const onerm = calculate1RM(set.kg, set.reps);
                 if (onerm) {
                     const onermDiv = document.createElement('div');
@@ -2190,11 +2316,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
             
-            if (isMobile && CALC_DELAY > 0) {
-                setTimeout(update1RM, CALC_DELAY + 10); // Slight offset from progress calculation
-            } else {
-                requestAnimationFrame(update1RM);
-            }
+            // Use IntersectionObserver for better scroll performance
+            if (calculationObserver && isMobile) {
+                // Store as secondary calculation
+                const originalCalc = card._pendingCalculation;
+                card._pendingCalculation = () => {
+                    if (originalCalc) originalCalc();
+                    update1RM();
+                };
+                if (!calculationObserver.observe) {
+                    calculationObserver.observe(card);
+                }
+                } else {
+                    // Desktop or fallback: use delayed execution
+                    if (isMobile && CALC_DELAY > 0) {
+                        setTimeout(() => {
+                            if (!isScrolling) update1RM();
+                            else pendingCalculations.push(update1RM);
+                        }, CALC_DELAY + 10);
+                    } else {
+                        scheduleIdle(() => {
+                            if (!isScrolling) update1RM();
+                            else pendingCalculations.push(update1RM);
+                        }, { timeout: 150 });
+                    }
+                }
         }
 
         return card;
