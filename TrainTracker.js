@@ -3793,16 +3793,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Definir rangos de medallas
     const MEDAL_RANGES = [
-        { min: 1, max: 5, image: 'Level1.png', name: 'Niveles 1-5', color: '#7ED957', stage: 'human' },
-        { min: 6, max: 10, image: 'Level5.png', name: 'Niveles 6-10', color: '#4CAF50', stage: 'human' },
-        { min: 11, max: 15, image: 'Level10.png', name: 'Niveles 11-15', color: '#42A5F5', stage: 'superior' },
-        { min: 16, max: 20, image: 'Level15.png', name: 'Niveles 16-20', color: '#1E88E5', stage: 'superior' },
-        { min: 21, max: 25, image: 'Level20.png', name: 'Niveles 21-25', color: '#FFC74D', stage: 'superhuman' },
-        { min: 26, max: 30, image: 'Level25.png', name: 'Niveles 26-30', color: '#FFB300', stage: 'superhuman' },
-        { min: 31, max: 35, image: 'Level30.png', name: 'Niveles 31-35', color: '#AB47BC', stage: 'divine' },
-        { min: 36, max: 40, image: 'Level35.png', name: 'Niveles 36-40', color: '#8E24AA', stage: 'divine' },
-        { min: 41, max: 45, image: 'Level40.png', name: 'Niveles 41-45', color: '#E53935', stage: 'abyssal' },
-        { min: 46, max: 49, image: 'Level45.png', name: 'Niveles 46-49', color: '#B71C1C', stage: 'abyssal' },
+        { min: 1, max: 5, image: 'images/Level1.png', name: 'Niveles 1-5', color: '#7ED957', stage: 'human' },
+        { min: 6, max: 10, image: 'images/Level5.png', name: 'Niveles 6-10', color: '#4CAF50', stage: 'human' },
+        { min: 11, max: 15, image: 'images/Level10.png', name: 'Niveles 11-15', color: '#42A5F5', stage: 'superior' },
+        { min: 16, max: 20, image: 'images/Level15.png', name: 'Niveles 16-20', color: '#1E88E5', stage: 'superior' },
+        { min: 21, max: 25, image: 'images/Level20.png', name: 'Niveles 21-25', color: '#FFC74D', stage: 'superhuman' },
+        { min: 26, max: 30, image: 'images/Level25.png', name: 'Niveles 26-30', color: '#FFB300', stage: 'superhuman' },
+        { min: 31, max: 35, image: 'images/Level30.png', name: 'Niveles 31-35', color: '#AB47BC', stage: 'divine' },
+        { min: 36, max: 40, image: 'images/Level35.png', name: 'Niveles 36-40', color: '#8E24AA', stage: 'divine' },
+        { min: 41, max: 45, image: 'images/Level40.png', name: 'Niveles 41-45', color: '#E53935', stage: 'abyssal' },
+        { min: 46, max: 49, image: 'images/Level45.png', name: 'Niveles 46-49', color: '#B71C1C', stage: 'abyssal' },
         { min: 50, max: 50, image: null, name: 'Nivel 50', color: '#B71C1C', stage: 'abyssal', special: true }
     ];
 
@@ -3873,33 +3873,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Si han pasado 10 días o más, usar Level+50.png
             if (daysDiff >= 10) {
-                return 'Level+50.png';
+                return 'images/Level+50.png';
             }
             // Si no, usar Level50.png
-            return 'Level50.png';
+            return 'images/Level50.png';
         }
 
         // Reglas normales para otros niveles
         if (levelNum >= 1 && levelNum <= 5) {
-            return 'Level1.png';
+            return 'images/Level1.png';
         } else if (levelNum >= 6 && levelNum <= 10) {
-            return 'Level5.png';
+            return 'images/Level5.png';
         } else if (levelNum >= 11 && levelNum <= 15) {
-            return 'Level10.png';
+            return 'images/Level10.png';
         } else if (levelNum >= 16 && levelNum <= 20) {
-            return 'Level15.png';
+            return 'images/Level15.png';
         } else if (levelNum >= 21 && levelNum <= 25) {
-            return 'Level20.png';
+            return 'images/Level20.png';
         } else if (levelNum >= 26 && levelNum <= 30) {
-            return 'Level25.png';
+            return 'images/Level25.png';
         } else if (levelNum >= 31 && levelNum <= 35) {
-            return 'Level30.png';
+            return 'images/Level30.png';
         } else if (levelNum >= 36 && levelNum <= 40) {
-            return 'Level35.png';
+            return 'images/Level35.png';
         } else if (levelNum >= 41 && levelNum <= 45) {
-            return 'Level40.png';
+            return 'images/Level40.png';
         } else if (levelNum >= 46 && levelNum <= 49) {
-            return 'Level45.png';
+            return 'images/Level45.png';
         }
 
         // Si no coincide con ningún rango, retornar null (usará emoji)
@@ -6423,7 +6423,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Get medal image
         const medalSrc = getMedalImage(level);
-        medalImg.src = medalSrc || 'Level1.png'; // Fallback
+        medalImg.src = medalSrc || 'images/Level1.png'; // Fallback
 
         // Get motivational phrase
         const messages = MOTIVATIONAL_MESSAGES[level.stage] || MOTIVATIONAL_MESSAGES.human;
