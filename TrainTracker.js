@@ -1459,11 +1459,101 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =================== Render sesiones =================== */
-    // Cache for input state preservation during re-renders
-    let inputStateCache = new Map();
+    // EXTREME PERFORMANCE ARCHITECTURE
+    // Event delegation: single global listener for all inputs
+    let diaryEventDelegationSetup = false;
+    
+    // Component-level DOM caches (WeakMap for automatic cleanup)
+    const sessionElementCache = new WeakMap(); // session object -> DOM element
+    const exerciseElementCache = new WeakMap(); // exercise object -> DOM element
+    const setElementCache = new WeakMap(); // set object -> DOM element
+    
+    // Render state tracking
     let isRendering = false;
-
-    // Removed scroll-based optimization - all content loads immediately
+    let renderedSessions = new WeakSet(); // Track which sessions are rendered
+    
+    // IntersectionObserver for lazy loading calculations
+    let calculationObserver = null;
+    
+    // Batch update queue for DOM modifications
+    const domUpdateQueue = [];
+    let domUpdateScheduled = false;
+    
+    // Memoization caches
+    const sessionRenderCache = new WeakMap();
+    const exerciseRenderCache = new WeakMap();
+    
+    // Setup global event delegation (once)
+    function setupDiaryEventDelegation() {
+        if (diaryEventDelegationSetup) return;
+        diaryEventDelegationSetup = true;
+        
+        const container = $('#sessions');
+        if (!container) return;
+        
+        // Single listener for all input events (delegation)
+        container.addEventListener('input', (e) => {
+            const input = e.target;
+            if (!input.classList.contains('js-kg') && 
+                !input.classList.contains('js-reps') && 
+                !input.classList.contains('js-rir')) return;
+            
+            const setElement = input.closest('[data-set-id]');
+            if (!setElement) return;
+            
+            const sessionEl = input.closest('.session');
+            const exerciseEl = input.closest('.exercise');
+            if (!sessionEl || !exerciseEl) return;
+            
+            const sessionId = sessionEl.dataset.id;
+            const exId = exerciseEl.dataset.exId;
+            const setId = setElement.dataset.setId;
+            
+            if (!sessionId || !exId || !setId) return;
+            
+            // Get field name from class
+            let field = 'kg';
+            if (input.classList.contains('js-reps')) field = 'reps';
+            else if (input.classList.contains('js-rir')) field = 'rir';
+            
+            // Update immediately without re-render
+            updateSet(sessionId, exId, setId, field, input.value.trim(), true);
+        }, { passive: true });
+        
+        // Single listener for focus events
+        container.addEventListener('focus', (e) => {
+            const input = e.target;
+            if (!input.classList.contains('js-kg') && 
+                !input.classList.contains('js-reps') && 
+                !input.classList.contains('js-rir')) return;
+            
+            const setElement = input.closest('[data-set-id]');
+            if (!setElement) return;
+            
+            const sessionId = input.closest('.session')?.dataset.id;
+            const exId = input.closest('.exercise')?.dataset.exId;
+            const setId = setElement.dataset.setId;
+            
+            if (sessionId && exId && setId) {
+                restoreOriginalValues(sessionId, exId, setId);
+            }
+        }, true);
+    }
+    
+    // Batch DOM updates to minimize reflows
+    function scheduleDOMUpdate(callback) {
+        domUpdateQueue.push(callback);
+        if (!domUpdateScheduled) {
+            domUpdateScheduled = true;
+            requestAnimationFrame(() => {
+                domUpdateScheduled = false;
+                const queue = domUpdateQueue.splice(0);
+                queue.forEach(fn => {
+                    try { fn(); } catch (e) { console.warn('DOM update error:', e); }
+                });
+            });
+        }
+    }
 
     function captureInputState() {
         const container = $('#sessions');
@@ -1558,8 +1648,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // EXTREME PERFORMANCE: Optimized renderSessions
+    // Only renders structure, defers all calculations
     function renderSessions() {
-        // Prevent recursive renders
         if (isRendering) return;
         isRendering = true;
 
@@ -1570,7 +1661,10 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Capture input state before destroying DOM - only if there are existing sessions and active input
+        // Setup event delegation once
+        setupDiaryEventDelegation();
+
+        // Capture minimal state (only open/closed state)
         const prevDetails = Array.from(container.querySelectorAll('details'));
         const prevOpen = new Set();
         prevDetails.forEach(d => {
@@ -1580,15 +1674,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         const hadPrev = prevDetails.length > 0;
-        
-        const activeInput = document.activeElement;
-        const hasActiveInput = activeInput && (
-            activeInput.classList.contains('js-kg') ||
-            activeInput.classList.contains('js-reps') ||
-            activeInput.classList.contains('js-rir')
-        );
-        const inputState = (hadPrev && hasActiveInput) ? captureInputState() : new Map();
 
+        // Clear only if needed (incremental updates would be better, but for now full clear)
         clearDomCache();
         container.innerHTML = '';
 
@@ -1616,6 +1703,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const currentDayId = sortedSessions.find(s => !s.completed)?.id || null;
+        
+        // Render structure only - NO calculations, NO expensive operations
         const fragment = document.createDocumentFragment();
         sortedSessions.forEach(session => {
             const dayKey = toLocalISO(parseLocalDate(session.date));
@@ -1632,45 +1721,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 details.open = sessionId === currentDayId;
             }
 
+            // Minimal summary (fast)
             const summary = document.createElement('summary');
-            summary.style.display = 'flex';
-            summary.style.justifyContent = 'space-between';
-            summary.style.alignItems = 'center';
-            summary.style.padding = '10px';
-            summary.style.cursor = 'pointer';
-
-            const left = document.createElement('div');
-            const strong = document.createElement('strong');
-            strong.style.fontWeight = '800';
-            strong.textContent = session.name;
-            left.appendChild(strong);
-            const right = document.createElement('div');
-            right.style.color = 'var(--muted)';
-            const dateStr = new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
-            right.textContent = dateStr;
-            if (session.completed) {
-                left.classList.add('completed');
-                right.textContent += ' · Completada ✓';
-            }
-            summary.appendChild(left);
-            summary.appendChild(right);
+            summary.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer';
+            summary.innerHTML = `
+                <div><strong style="font-weight:800">${escapeHtml(session.name)}</strong></div>
+                <div style="color:var(--muted)">${new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}${session.completed ? ' · Completada ✓' : ''}</div>
+            `;
             details.appendChild(summary);
 
             const dayBody = document.createElement('div');
-            dayBody.style.display = 'grid';
-            dayBody.style.gap = '8px';
-            dayBody.style.padding = '10px';
+            dayBody.style.cssText = 'display:grid;gap:8px;padding:10px';
 
+            // Clone session card template (fast)
             const card = $('#tpl-session').content.firstElementChild.cloneNode(true);
             card.dataset.id = session.id;
             card.classList.toggle('completed', !!session.completed);
             card.querySelector('.session__title').textContent = session.name;
             const dateEl = card.querySelector('.session__date');
-            if (dateEl) {
-                dateEl.style.display = 'none';
-            }
+            if (dateEl) dateEl.style.display = 'none';
             const btnComplete = card.querySelector('.js-complete');
-            btnComplete.setAttribute('aria-pressed', String(!!session.completed));
+            if (btnComplete) btnComplete.setAttribute('aria-pressed', String(!!session.completed));
             if (session.completed) {
                 const badge = document.createElement('span');
                 badge.className = 'badge-done';
@@ -1685,45 +1756,44 @@ document.addEventListener('DOMContentLoaded', () => {
             exercisesContainer.style.display = 'none';
             body.appendChild(exercisesContainer);
 
+            // Lazy render function - ONLY called when details opens
             let exercisesRendered = false;
             const renderExercisesLazy = () => {
                 if (exercisesRendered) return;
                 exercisesRendered = true;
                 exercisesContainer.style.display = '';
 
-                // OPTIMIZATION: Check media query once per session render instead of per exercise
                 const isDesktop = window.matchMedia('(min-width: 768px)').matches;
-
-                // Render structure first (fast), then calculate expensive values (deferred)
                 const fragment = document.createDocumentFragment();
+                
+                // Render structure ONLY - no calculations
                 exercisesData.forEach(ex => {
-                    fragment.appendChild(renderExercise(session, ex, isDesktop, true)); // Pass flag to defer calculations
+                    fragment.appendChild(renderExercise(session, ex, isDesktop, true));
                 });
                 exercisesContainer.appendChild(fragment);
                 
-                // Now calculate expensive values in background after DOM is rendered
-                // Process in batches to avoid blocking the browser
-                const allSets = [];
-                exercisesData.forEach(ex => {
-                    ex.sets?.forEach(set => {
-                        allSets.push({ session, ex, set });
+                // Schedule calculations in idle time (non-blocking)
+                scheduleDOMUpdate(() => {
+                    const allSets = [];
+                    exercisesData.forEach(ex => {
+                        ex.sets?.forEach(set => {
+                            allSets.push({ session, ex, set });
+                        });
                     });
+                    
+                    // Process in micro-batches (1 set at a time for extreme responsiveness)
+                    let idx = 0;
+                    const processNext = () => {
+                        if (idx < allSets.length) {
+                            updateSetCalculations(allSets[idx].session, allSets[idx].ex, allSets[idx].set);
+                            idx++;
+                            if (idx < allSets.length) {
+                                setTimeout(processNext, 0);
+                            }
+                        }
+                    };
+                    setTimeout(processNext, 0);
                 });
-                
-                // Process sets in small batches to keep UI responsive
-                let batchIndex = 0;
-                const batchSize = 3; // Process 3 sets at a time
-                const processBatch = () => {
-                    const end = Math.min(batchIndex + batchSize, allSets.length);
-                    for (let i = batchIndex; i < end; i++) {
-                        updateSetCalculations(allSets[i].session, allSets[i].ex, allSets[i].set);
-                    }
-                    batchIndex = end;
-                    if (batchIndex < allSets.length) {
-                        setTimeout(processBatch, 0); // Process next batch
-                    }
-                };
-                setTimeout(processBatch, 0);
             };
 
             details._renderExercises = renderExercisesLazy;
@@ -1734,54 +1804,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 exercisesContainer.appendChild(addExBtn);
             }
 
-            // Defer updateSessionEditUI to avoid DOM queries during render
-            // It will be called after all sessions are rendered if needed
-
             dayBody.appendChild(card);
             details.appendChild(dayBody);
             fragment.appendChild(details);
 
+            // Toggle handler - instant response
             details.addEventListener('toggle', function () {
-                const sessionCard = this.querySelector('.session.card');
-                if (sessionCard) {
-                    if (this.open) {
-                        // Lazy render exercises immediately when opening - no delay
-                        if (this._renderExercises) {
-                            this._renderExercises();
-                            delete this._renderExercises; // Clean up after first render
-                        }
-
-                        // Add animation class immediately
-                        sessionCard.classList.add('animate-in');
-                    } else {
-                        // Remove animation class when closing
-                        sessionCard.classList.remove('animate-in');
+                if (this.open) {
+                    if (this._renderExercises) {
+                        this._renderExercises();
+                        delete this._renderExercises;
                     }
+                    const sessionCard = this.querySelector('.session.card');
+                    if (sessionCard) sessionCard.classList.add('animate-in');
+                } else {
+                    const sessionCard = this.querySelector('.session.card');
+                    if (sessionCard) sessionCard.classList.remove('animate-in');
                 }
             });
 
-            if (details.open) {
-                // Render exercises immediately - no delay
-                if (details._renderExercises) {
-                    details._renderExercises();
-                    delete details._renderExercises;
-                }
+            // Render if already open
+            if (details.open && details._renderExercises) {
+                details._renderExercises();
+                delete details._renderExercises;
                 const sessionCard = details.querySelector('.session.card');
-                if (sessionCard) {
-                    sessionCard.classList.add('animate-in');
-                }
+                if (sessionCard) sessionCard.classList.add('animate-in');
             }
         });
 
         container.appendChild(fragment);
 
-        // Update session edit UI immediately - no delay
-        sortedSessions.forEach(session => {
-            updateSessionEditUI(session.id);
+        // Update session edit UI in batch
+        scheduleDOMUpdate(() => {
+            sortedSessions.forEach(session => {
+                updateSessionEditUI(session.id);
+            });
         });
 
-        // Restore input state immediately - no delay
-        restoreInputState(inputState);
         isRendering = false;
     }
     // Helper function to update set calculations after initial render
@@ -1997,38 +2056,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge - show placeholder if deferring, otherwise calculate immediately
+        // ALWAYS defer calculations - show placeholder
         const progressCell = row.querySelector('.progress');
         if (progressCell) {
-            if (deferCalculations) {
-                // Show placeholder, will be updated by updateSetCalculations
-                progressCell.innerHTML = '<span class="progress--same">...</span>';
-            } else {
-                const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
-                let progressHTML = progressCache.get(cacheKey);
-                if (!progressHTML) {
-                    progressHTML = progressText(session, ex, set);
-                }
-                if (set.isPR) {
-                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                    progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
-                }
-                progressCell.innerHTML = progressHTML;
-            }
+            progressCell.innerHTML = '<span class="progress--same">...</span>';
         }
-
-        // Calculate and display 1RM - only if not deferring
-        if (set.kg && set.reps && !deferCalculations) {
-            const onerm = calculate1RM(set.kg, set.reps);
-            if (onerm) {
-                const onermCell = document.createElement('td');
-                onermCell.className = 'onerm-display';
-                const currentBest = app.onerm[ex.name] || 0;
-                const isPR = onerm > currentBest;
-                onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                row.appendChild(onermCell);
-            }
-        }
+        // 1RM will be calculated later by updateSetCalculations
 
         return row;
     }
@@ -2054,37 +2087,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Show placeholder if deferring, otherwise calculate immediately
+        // ALWAYS defer calculations - show placeholder
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
-            if (deferCalculations) {
-                // Show placeholder, will be updated by updateSetCalculations
-                progressEl.innerHTML = '<span class="progress--same">...</span>';
-            } else {
-                const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
-                let progressHTML = progressCache.get(cacheKey);
-                if (!progressHTML) {
-                    progressHTML = progressText(session, ex, set);
-                }
-                const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
-                if (set.isPR) {
-                    progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
-                }
-                progressEl.innerHTML = progressHTML;
-            }
+            progressEl.innerHTML = '<span class="progress--same">...</span>';
         }
-
-        if (set.kg && set.reps && !deferCalculations) {
-            const onerm = calculate1RM(set.kg, set.reps);
-            if (onerm) {
-                const onermDiv = document.createElement('div');
-                onermDiv.className = 'onerm-display';
-                const currentBest = app.onerm[ex.name] || 0;
-                const isPR = onerm > currentBest;
-                onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                card.appendChild(onermDiv);
-            }
-        }
+        // 1RM will be calculated later by updateSetCalculations
 
         return card;
     }
@@ -6862,39 +6870,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Use 'input' event for real-time updates while typing
-        // This prevents keyboard from closing on mobile when moving between fields
-        $('#sessions').addEventListener('input', (e) => {
-            const setElement = e.target.closest('[data-set-id]');
-            if (!setElement) return;
-
-            const sessionId = e.target.closest('.session').dataset.id;
-            const exId = e.target.closest('.exercise').dataset.exId;
-            const setId = setElement.dataset.setId;
-
-            // Update immediately without refresh to keep keyboard open
-            if (e.target.classList.contains('js-kg')) updateSet(sessionId, exId, setId, 'kg', e.target.value.trim(), true);
-            if (e.target.classList.contains('js-reps')) updateSet(sessionId, exId, setId, 'reps', e.target.value.trim(), true);
-            if (e.target.classList.contains('js-rir')) updateSet(sessionId, exId, setId, 'rir', e.target.value.trim(), true);
-        });
-
-        // Restore original values when focusing on inputs if prev week data is active
-        $('#sessions').addEventListener('focus', (e) => {
-            if (e.target.classList.contains('js-kg') ||
-                e.target.classList.contains('js-reps') ||
-                e.target.classList.contains('js-rir')) {
-                const setElement = e.target.closest('[data-set-id]');
-                if (!setElement) return;
-
-                const sessionId = e.target.closest('.session')?.dataset.id;
-                const exId = e.target.closest('.exercise')?.dataset.exId;
-                const setId = setElement.dataset.setId;
-
-                if (sessionId && exId && setId) {
-                    restoreOriginalValues(sessionId, exId, setId);
-                }
-            }
-        }, true);
+        // Event delegation is now handled globally by setupDiaryEventDelegation()
+        // No need for duplicate listeners here
 
         // Removed blur-triggered refresh to prevent input focus loss
         // Inputs are updated in real-time via 'input' event, no need for refresh on blur
