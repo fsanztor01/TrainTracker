@@ -818,6 +818,10 @@ document.addEventListener('DOMContentLoaded', () => {
             routineNameInput.value = templateLabels[key] || `Rutina ${key}`;
             routineNameInput.focus();
         }
+        
+        // For PPL (6 days), use 3 sets per exercise, otherwise 1 set
+        const setsPerExercise = (key === 'ppl') ? 3 : 1;
+        
         preset.forEach(day => {
             const dayEl = addRoutineDay({
                 id: uuid(),
@@ -825,7 +829,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 exercises: (day.ex || []).map(exName => ({
                     id: uuid(),
                     name: exName,
-                    sets: [{ id: uuid(), kg: '', reps: '', rir: '' }]
+                    sets: Array.from({ length: setsPerExercise }, (_, index) => ({
+                        id: uuid(),
+                        kg: '',
+                        reps: '',
+                        rir: '',
+                        planKg: '',
+                        planReps: '',
+                        planRir: '',
+                        setNumber: index + 1 // Assign set numbers 1, 2, 3...
+                    }))
                 }))
             });
             if (dayEl) updateRoutineExerciseReorderButtons(dayEl);
@@ -1907,7 +1920,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Use document fragment for batch DOM insertion (better performance)
             const fragment = document.createDocumentFragment();
             sets.forEach(set => {
-                const row = renderSet(session, ex, set);
+                const row = renderSet(session, ex, set, deferCalculations);
                 fragment.appendChild(row);
                 // Cache DOM element reference for efficient updates
                 domElementCache.set(set, row);
@@ -1921,7 +1934,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Render all sets at once for immediate complete loading
             const fragment = document.createDocumentFragment();
             sets.forEach((set, i) => {
-                const card = renderSetCard(session, ex, set, i);
+                const card = renderSetCard(session, ex, set, i, deferCalculations);
                 fragment.appendChild(card);
                 // Cache DOM element reference for efficient updates
                 domElementCache.set(set, card);
@@ -1964,7 +1977,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderSet(session, ex, set) {
+    function renderSet(session, ex, set, deferCalculations = false) {
         const row = $('#tpl-set').content.firstElementChild.cloneNode(true);
         row.dataset.setId = set.id;
         row.querySelector('.set-num').textContent = set.setNumber;
@@ -2020,7 +2033,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     }
 
-    function renderSetCard(session, ex, set, setIndex = 0) {
+    function renderSetCard(session, ex, set, setIndex = 0, deferCalculations = false) {
         const card = $('#tpl-set-card').content.firstElementChild.cloneNode(true);
         card.dataset.setId = set.id;
         card.style.position = 'relative';
@@ -4484,12 +4497,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isDesktop) {
                     const tbody = exEl.querySelector('.sets tbody');
                     if (tbody) {
-                        tbody.appendChild(renderSet(s, ex, newSet));
+                        tbody.appendChild(renderSet(s, ex, newSet, false));
                     }
                 } else {
                     const container = exEl.querySelector('.sets-container');
                     if (container) {
-                        container.appendChild(renderSetCard(s, ex, newSet, ex.sets.length - 1));
+                        container.appendChild(renderSetCard(s, ex, newSet, ex.sets.length - 1, false));
                     }
                 }
             }
