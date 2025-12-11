@@ -968,6 +968,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Initialize debouncedSave inside DOMContentLoaded to access save function
+    let saveTimer = null;
+    debouncedSave = function() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            save();
+        }, 500); // Wait 500ms after last change before saving
+    };
+
     async function load() {
         let parsed = null;
         try {
@@ -1404,10 +1413,111 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* =================== Render sesiones =================== */
+    // Cache for input state preservation during re-renders
+    let inputStateCache = new Map();
+    let isRendering = false;
+
+    function captureInputState() {
+        const container = $('#sessions');
+        if (!container) return new Map();
+
+        const state = new Map();
+        const inputs = container.querySelectorAll('.js-kg, .js-reps, .js-rir');
+        const activeElement = document.activeElement;
+
+        inputs.forEach(input => {
+            const setElement = input.closest('[data-set-id]');
+            if (!setElement) return;
+
+            const sessionId = input.closest('.session')?.dataset.id;
+            const exId = input.closest('.exercise')?.dataset.exId;
+            const setId = setElement.dataset.setId;
+
+            if (sessionId && exId && setId) {
+                // Use a separator that won't conflict with IDs (which may contain hyphens)
+                const key = `${sessionId}::${exId}::${setId}::${input.className}`;
+                state.set(key, {
+                    value: input.value,
+                    hasFocus: input === activeElement,
+                    selectionStart: input.selectionStart,
+                    selectionEnd: input.selectionEnd
+                });
+            }
+        });
+
+        return state;
+    }
+
+    function restoreInputState(state) {
+        if (!state || state.size === 0) return;
+
+        const container = $('#sessions');
+        if (!container) return;
+
+        let focusedInput = null;
+        let focusData = null;
+
+        state.forEach((data, key) => {
+            // Use separator that won't conflict with IDs
+            const parts = key.split('::');
+            if (parts.length < 4) return;
+
+            const sessionId = parts[0];
+            const exId = parts[1];
+            const setId = parts[2];
+            const inputClass = parts[3];
+
+            const session = container.querySelector(`.session[data-id="${sessionId}"]`);
+            if (!session) return;
+
+            const exercise = session.querySelector(`.exercise[data-ex-id="${exId}"]`);
+            if (!exercise) return;
+
+            const setElement = exercise.querySelector(`[data-set-id="${setId}"]`);
+            if (!setElement) return;
+
+            const input = setElement.querySelector(`.${inputClass}`);
+            if (!input) return;
+
+            // Restore value
+            input.value = data.value;
+
+            // Track focused input to restore focus after all inputs are restored
+            if (data.hasFocus) {
+                focusedInput = input;
+                focusData = data;
+            }
+        });
+
+        // Restore focus and selection after a brief delay to ensure DOM is ready
+        if (focusedInput && focusData) {
+            requestAnimationFrame(() => {
+                try {
+                    focusedInput.focus();
+                    if (focusedInput.setSelectionRange && typeof focusData.selectionStart === 'number') {
+                        focusedInput.setSelectionRange(focusData.selectionStart, focusData.selectionEnd);
+                    }
+                } catch (e) {
+                    // Ignore focus errors (e.g., element not focusable)
+                }
+            });
+        }
+    }
+
     function renderSessions() {
+        // Prevent recursive renders
+        if (isRendering) return;
+        isRendering = true;
+
         const container = $('#sessions');
         const emptyState = $('#emptyState');
-        if (!container) return;
+        if (!container) {
+            isRendering = false;
+            return;
+        }
+
+        // Capture input state before destroying DOM
+        const inputState = captureInputState();
 
         const prevDetails = Array.from(container.querySelectorAll('details'));
         const prevOpen = new Set();
@@ -1428,6 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 emptyState.hidden = false;
                 emptyState.style.display = '';
             }
+            isRendering = false;
             return;
         }
 
@@ -1519,8 +1630,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (exercisesRendered) return;
                 exercisesRendered = true;
                 exercisesContainer.style.display = '';
+                
+                // Use document fragment for batch DOM insertion (better performance)
+                const fragment = document.createDocumentFragment();
                 exercisesData.forEach(ex => {
-                    exercisesContainer.appendChild(renderExercise(session, ex));
+                    fragment.appendChild(renderExercise(session, ex));
+                });
+                exercisesContainer.appendChild(fragment);
+                
+                // Restore input state after exercises are rendered
+                requestAnimationFrame(() => {
+                    restoreInputState(inputState);
                 });
             };
 
@@ -1537,6 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dayBody.appendChild(card);
             details.appendChild(dayBody);
             fragment.appendChild(details);
+            
             let toggleTimeout;
             details.addEventListener('toggle', function () {
                 if (toggleTimeout) cancelAnimationFrame(toggleTimeout);
@@ -1579,11 +1700,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (sessionCard) {
                         sessionCard.classList.add('animate-in');
                     }
+                    // Restore input state for initially open sessions
+                    restoreInputState(inputState);
                 });
             }
         });
 
         container.appendChild(fragment);
+        
+        // Restore input state after DOM is ready (for initially closed sessions that might open)
+        requestAnimationFrame(() => {
+            restoreInputState(inputState);
+            isRendering = false;
+        });
     }
     function renderExercise(session, ex) {
         const block = $('#tpl-exercise').content.firstElementChild.cloneNode(true);
@@ -1790,17 +1919,23 @@ document.addEventListener('DOMContentLoaded', () => {
             mobileContainer.style.display = 'none';
             desktopTable.parentElement.parentElement.style.display = ''; // Ensure table container is visible
 
+            // Use document fragment for batch DOM insertion (better performance)
+            const fragment = document.createDocumentFragment();
             sets.forEach(set => {
-                desktopTable.appendChild(renderSet(session, ex, set));
+                fragment.appendChild(renderSet(session, ex, set));
             });
+            desktopTable.appendChild(fragment);
         } else {
             // Hide desktop container
             desktopTable.parentElement.parentElement.style.display = 'none';
             mobileContainer.style.display = '';
 
+            // Use document fragment for batch DOM insertion (better performance)
+            const fragment = document.createDocumentFragment();
             sets.forEach(set => {
-                mobileContainer.appendChild(renderSetCard(session, ex, set));
+                fragment.appendChild(renderSetCard(session, ex, set));
             });
+            mobileContainer.appendChild(fragment);
         }
 
         const note = getExerciseNote(session.id, ex.id);
@@ -4356,6 +4491,16 @@ function deleteSet(sessionId, exId, setId) {
 let setUpdateTimer = null;
 let focusedInput = null;
 
+// Debounced save function for frequent updates (e.g., typing in inputs)
+// This will be initialized inside DOMContentLoaded to access the save function
+var debouncedSave = function() {
+    // Fallback: if save is not available yet, do nothing
+    // This will be replaced when DOMContentLoaded runs
+    if (typeof save === 'function') {
+        save();
+    }
+};
+
 function updateSet(sessionId, exId, setId, field, value, skipRefresh = false) {
     const s = app.sessions.find(x => x.id === sessionId); if (!s) return;
     const ex = s.exercises.find(e => e.id === exId); if (!ex) return;
@@ -4381,13 +4526,97 @@ function updateSet(sessionId, exId, setId, field, value, skipRefresh = false) {
     // Save automatically (debounced for typing)
     debouncedSave();
 
-    // Only refresh if not skipping (to avoid closing keyboard on mobile)
+    // Removed automatic refresh - inputs update in real-time and don't need full re-render
+    // Only update specific UI elements that changed (like PR badges, 1RM) via incremental updates
     if (!skipRefresh) {
-        clearTimeout(setUpdateTimer);
-        setUpdateTimer = setTimeout(() => {
-            refresh({ preserveTab: true });
-        }, 300);
+        // Update PR badge and 1RM display incrementally without full re-render
+        requestAnimationFrame(() => {
+            updateSetUI(sessionId, exId, setId, st, ex.name);
+        });
     }
+}
+
+// Incremental UI update for set changes (PR badges, 1RM) without full re-render
+function updateSetUI(sessionId, exId, setId, set, exerciseName) {
+    const container = $('#sessions');
+    if (!container) return;
+
+    const sessionEl = container.querySelector(`.session[data-id="${sessionId}"]`);
+    if (!sessionEl) return;
+
+    const exerciseEl = sessionEl.querySelector(`.exercise[data-ex-id="${exId}"]`);
+    if (!exerciseEl) return;
+
+    // Find set element (could be table row or card)
+    const setElement = exerciseEl.querySelector(`[data-set-id="${setId}"]`);
+    if (!setElement) return;
+
+    // Get session and exercise data from app state
+    const sessionData = app.sessions.find(s => s.id === sessionId);
+    if (!sessionData) return;
+    const exData = sessionData.exercises?.find(e => e.id === exId);
+    if (!exData) return;
+
+    // Update progress cell/div - defer expensive calculation
+    const progressEl = setElement.querySelector('.progress, .set-progress');
+    if (progressEl) {
+        // Use requestAnimationFrame to batch updates and avoid blocking
+        requestAnimationFrame(() => {
+            try {
+                let progressHTML = progressText(sessionData, exData, set);
+                if (set.isPR) {
+                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                    const badgeClass = progressEl.classList.contains('set-progress') ? 'pr-badge-set' : 'pr-badge';
+                    progressHTML += `<span class="pr-badge ${badgeClass}">🏆 PR ${prLabel}</span>`;
+                }
+                progressEl.innerHTML = progressHTML;
+            } catch (e) {
+                console.warn('Error updating progress UI:', e);
+            }
+        });
+    }
+
+    // Update 1RM display - defer expensive calculation
+    requestAnimationFrame(() => {
+        try {
+            if (set.kg && set.reps) {
+                const onerm = calculate1RM(set.kg, set.reps);
+                if (onerm) {
+                    const currentBest = app.onerm[exerciseName] || 0;
+                    const isPR = onerm > currentBest;
+                    const onermHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                    
+                    // Check if 1RM element already exists
+                    let onermEl = setElement.querySelector('.onerm-display');
+                    if (onermEl) {
+                        onermEl.innerHTML = onermHTML;
+                    } else {
+                        // Create new 1RM element
+                        const isDesktop = setElement.tagName === 'TR';
+                        if (isDesktop) {
+                            const onermCell = document.createElement('td');
+                            onermCell.className = 'onerm-display';
+                            onermCell.innerHTML = onermHTML;
+                            setElement.appendChild(onermCell);
+                        } else {
+                            const onermDiv = document.createElement('div');
+                            onermDiv.className = 'onerm-display';
+                            onermDiv.innerHTML = onermHTML;
+                            setElement.appendChild(onermDiv);
+                        }
+                    }
+                }
+            } else {
+                // Remove 1RM display if kg or reps is empty
+                const onermEl = setElement.querySelector('.onerm-display');
+                if (onermEl) {
+                    onermEl.remove();
+                }
+            }
+        } catch (e) {
+            console.warn('Error updating 1RM UI:', e);
+        }
+    });
 }
 
 /* =================== Confirm Dialog =================== */
@@ -6537,31 +6766,8 @@ function bindEvents() {
         }
     }, true);
 
-    // Refresh after user stops interacting with inputs for 1 second
-    // This ensures UI updates without closing keyboard while typing
-    let refreshTimer = null;
-    $('#sessions').addEventListener('blur', (e) => {
-        if (e.target.classList.contains('js-kg') ||
-            e.target.classList.contains('js-reps') ||
-            e.target.classList.contains('js-rir')) {
-            // Delay refresh to allow focus to move to next input
-            clearTimeout(refreshTimer);
-            refreshTimer = setTimeout(() => {
-                // Check if any set input still has focus
-                const activeEl = document.activeElement;
-                const hasSetInputFocus = activeEl && (
-                    activeEl.classList.contains('js-kg') ||
-                    activeEl.classList.contains('js-reps') ||
-                    activeEl.classList.contains('js-rir')
-                );
-
-                // Only refresh if no set input has focus
-                if (!hasSetInputFocus) {
-                    refresh({ preserveTab: true });
-                }
-            }, 500);
-        }
-    }, true);
+    // Removed blur-triggered refresh to prevent input focus loss
+    // Inputs are updated in real-time via 'input' event, no need for refresh on blur
 
     // Guardar ejercicio
     $('#saveExercise').addEventListener('click', (ev) => {
@@ -6857,16 +7063,26 @@ function bindEvents() {
         });
     }
 
-    // Re-render sessions on window resize (debounced) to handle responsive set rendering
+    // Optimized resize handler - only re-render if viewport crosses mobile/desktop threshold
     let resizeTimer;
+    let lastViewportWidth = window.innerWidth;
+    const MOBILE_BREAKPOINT = 768;
     window.addEventListener('resize', () => {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(() => {
-            const activePanel = document.querySelector('.panel[aria-hidden="false"]');
-            if (activePanel && activePanel.id === 'panel-diary') {
-                renderSessions();
+            const currentWidth = window.innerWidth;
+            const wasMobile = lastViewportWidth < MOBILE_BREAKPOINT;
+            const isMobile = currentWidth < MOBILE_BREAKPOINT;
+            
+            // Only re-render if crossing mobile/desktop threshold
+            if (wasMobile !== isMobile) {
+                const activePanel = document.querySelector('.panel[aria-hidden="false"]');
+                if (activePanel && activePanel.id === 'panel-diary') {
+                    renderSessions();
+                }
             }
-        }, 200);
+            lastViewportWidth = currentWidth;
+        }, 300);
     });
 
 }
