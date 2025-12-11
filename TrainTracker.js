@@ -1681,12 +1681,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 // OPTIMIZATION: Check media query once per session render instead of per exercise
                 const isDesktop = window.matchMedia('(min-width: 768px)').matches;
 
-                // Render all exercises at once for immediate complete loading
+                // Render structure first (fast), then calculate expensive values (deferred)
                 const fragment = document.createDocumentFragment();
                 exercisesData.forEach(ex => {
-                    fragment.appendChild(renderExercise(session, ex, isDesktop));
+                    fragment.appendChild(renderExercise(session, ex, isDesktop, true)); // Pass flag to defer calculations
                 });
                 exercisesContainer.appendChild(fragment);
+                
+                // Now calculate expensive values in background after DOM is rendered
+                // Process in batches to avoid blocking the browser
+                const allSets = [];
+                exercisesData.forEach(ex => {
+                    ex.sets?.forEach(set => {
+                        allSets.push({ session, ex, set });
+                    });
+                });
+                
+                // Process sets in small batches to keep UI responsive
+                let batchIndex = 0;
+                const batchSize = 3; // Process 3 sets at a time
+                const processBatch = () => {
+                    const end = Math.min(batchIndex + batchSize, allSets.length);
+                    for (let i = batchIndex; i < end; i++) {
+                        updateSetCalculations(allSets[i].session, allSets[i].ex, allSets[i].set);
+                    }
+                    batchIndex = end;
+                    if (batchIndex < allSets.length) {
+                        setTimeout(processBatch, 0); // Process next batch
+                    }
+                };
+                setTimeout(processBatch, 0);
             };
 
             details._renderExercises = renderExercisesLazy;
@@ -1747,7 +1771,61 @@ document.addEventListener('DOMContentLoaded', () => {
         restoreInputState(inputState);
         isRendering = false;
     }
-    function renderExercise(session, ex, isDesktop) {
+    // Helper function to update set calculations after initial render
+    function updateSetCalculations(session, ex, set) {
+        const container = $('#sessions');
+        if (!container) return;
+        
+        const sessionEl = container.querySelector(`.session[data-id="${session.id}"]`);
+        if (!sessionEl) return;
+        
+        const exerciseEl = sessionEl.querySelector(`.exercise[data-ex-id="${ex.id}"]`);
+        if (!exerciseEl) return;
+        
+        const setElement = exerciseEl.querySelector(`[data-set-id="${set.id}"]`);
+        if (!setElement) return;
+        
+        // Update progress
+        const progressEl = setElement.querySelector('.progress, .set-progress');
+        if (progressEl && progressEl.innerHTML.includes('...')) {
+            const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
+            let progressHTML = progressCache.get(cacheKey);
+            if (!progressHTML) {
+                progressHTML = progressText(session, ex, set);
+            }
+            const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
+            if (set.isPR) {
+                const badgeClass = progressEl.classList.contains('set-progress') ? 'pr-badge-set' : 'pr-badge';
+                progressHTML += `<span class="pr-badge ${badgeClass}">🏆 PR ${prLabel}</span>`;
+            }
+            progressEl.innerHTML = progressHTML;
+        }
+        
+        // Update 1RM
+        if (set.kg && set.reps && !setElement.querySelector('.onerm-display')) {
+            const onerm = calculate1RM(set.kg, set.reps);
+            if (onerm) {
+                const currentBest = app.onerm[ex.name] || 0;
+                const isPR = onerm > currentBest;
+                const onermHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                
+                const isDesktop = setElement.tagName === 'TR';
+                if (isDesktop) {
+                    const onermCell = document.createElement('td');
+                    onermCell.className = 'onerm-display';
+                    onermCell.innerHTML = onermHTML;
+                    setElement.appendChild(onermCell);
+                } else {
+                    const onermDiv = document.createElement('div');
+                    onermDiv.className = 'onerm-display';
+                    onermDiv.innerHTML = onermHTML;
+                    setElement.appendChild(onermDiv);
+                }
+            }
+        }
+    }
+    
+    function renderExercise(session, ex, isDesktop, deferCalculations = false) {
         const block = $('#tpl-exercise').content.firstElementChild.cloneNode(true);
         block.dataset.exId = ex.id;
         const nameEl = block.querySelector('.exercise__name');
@@ -1906,23 +1984,28 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge - use cached value if available, otherwise calculate
+        // Add PR badge - show placeholder if deferring, otherwise calculate immediately
         const progressCell = row.querySelector('.progress');
         if (progressCell) {
-            const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
-            let progressHTML = progressCache.get(cacheKey);
-            if (!progressHTML) {
-                progressHTML = progressText(session, ex, set);
+            if (deferCalculations) {
+                // Show placeholder, will be updated by updateSetCalculations
+                progressCell.innerHTML = '<span class="progress--same">...</span>';
+            } else {
+                const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
+                let progressHTML = progressCache.get(cacheKey);
+                if (!progressHTML) {
+                    progressHTML = progressText(session, ex, set);
+                }
+                if (set.isPR) {
+                    const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                    progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
+                }
+                progressCell.innerHTML = progressHTML;
             }
-            if (set.isPR) {
-                const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
-            }
-            progressCell.innerHTML = progressHTML;
         }
 
-        // Calculate and display 1RM - only if both values present
-        if (set.kg && set.reps) {
+        // Calculate and display 1RM - only if not deferring
+        if (set.kg && set.reps && !deferCalculations) {
             const onerm = calculate1RM(set.kg, set.reps);
             if (onerm) {
                 const onermCell = document.createElement('td');
@@ -1958,22 +2041,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Use cached value if available, otherwise calculate - no delays
+        // Show placeholder if deferring, otherwise calculate immediately
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
-            const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
-            let progressHTML = progressCache.get(cacheKey);
-            if (!progressHTML) {
-                progressHTML = progressText(session, ex, set);
+            if (deferCalculations) {
+                // Show placeholder, will be updated by updateSetCalculations
+                progressEl.innerHTML = '<span class="progress--same">...</span>';
+            } else {
+                const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
+                let progressHTML = progressCache.get(cacheKey);
+                if (!progressHTML) {
+                    progressHTML = progressText(session, ex, set);
+                }
+                const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
+                if (set.isPR) {
+                    progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
+                }
+                progressEl.innerHTML = progressHTML;
             }
-            const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
-            if (set.isPR) {
-                progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
-            }
-            progressEl.innerHTML = progressHTML;
         }
 
-        if (set.kg && set.reps) {
+        if (set.kg && set.reps && !deferCalculations) {
             const onerm = calculate1RM(set.kg, set.reps);
             if (onerm) {
                 const onermDiv = document.createElement('div');
