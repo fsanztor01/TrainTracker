@@ -1682,14 +1682,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 exercisesRendered = true;
                 exercisesContainer.style.display = '';
                 
-                // Use document fragment for batch DOM insertion (better performance)
-                const fragment = document.createDocumentFragment();
-                exercisesData.forEach(ex => {
-                    fragment.appendChild(renderExercise(session, ex));
-                });
-                exercisesContainer.appendChild(fragment);
+                // Progressive rendering for mobile - render in smaller batches
+                const isMobile = window.innerWidth < 768;
+                const BATCH_SIZE = isMobile ? 2 : exercisesData.length; // Render 2 exercises at a time on mobile
+                const DELAY_BETWEEN_BATCHES = isMobile ? 50 : 0; // 50ms delay between batches on mobile
                 
-                // Don't restore input state here - it will be done once at the end
+                if (isMobile && exercisesData.length > BATCH_SIZE) {
+                    // Progressive rendering for mobile
+                    let index = 0;
+                    const renderBatch = () => {
+                        const fragment = document.createDocumentFragment();
+                        const endIndex = Math.min(index + BATCH_SIZE, exercisesData.length);
+                        
+                        for (let i = index; i < endIndex; i++) {
+                            fragment.appendChild(renderExercise(session, exercisesData[i]));
+                        }
+                        exercisesContainer.appendChild(fragment);
+                        
+                        index = endIndex;
+                        if (index < exercisesData.length) {
+                            setTimeout(renderBatch, DELAY_BETWEEN_BATCHES);
+                        }
+                    };
+                    renderBatch();
+                } else {
+                    // Desktop or small number of exercises - render all at once
+                    const fragment = document.createDocumentFragment();
+                    exercisesData.forEach(ex => {
+                        fragment.appendChild(renderExercise(session, ex));
+                    });
+                    exercisesContainer.appendChild(fragment);
+                }
             };
 
             details._renderExercises = renderExercisesLazy;
@@ -1985,12 +2008,36 @@ document.addEventListener('DOMContentLoaded', () => {
             desktopTable.parentElement.parentElement.style.display = 'none';
             mobileContainer.style.display = '';
 
-            // Use document fragment for batch DOM insertion (better performance)
-            const fragment = document.createDocumentFragment();
-            sets.forEach(set => {
-                fragment.appendChild(renderSetCard(session, ex, set));
-            });
-            mobileContainer.appendChild(fragment);
+            // Progressive rendering for mobile - render sets in smaller batches
+            const SET_BATCH_SIZE = 3; // Render 3 sets at a time
+            const DELAY_BETWEEN_SETS = 30; // 30ms delay between batches
+            
+            if (sets.length > SET_BATCH_SIZE) {
+                // Progressive rendering for mobile
+                let index = 0;
+                const renderSetBatch = () => {
+                    const fragment = document.createDocumentFragment();
+                    const endIndex = Math.min(index + SET_BATCH_SIZE, sets.length);
+                    
+                    for (let i = index; i < endIndex; i++) {
+                        fragment.appendChild(renderSetCard(session, ex, sets[i], i));
+                    }
+                    mobileContainer.appendChild(fragment);
+                    
+                    index = endIndex;
+                    if (index < sets.length) {
+                        setTimeout(renderSetBatch, DELAY_BETWEEN_SETS);
+                    }
+                };
+                renderSetBatch();
+            } else {
+                // Small number of sets - render all at once
+                const fragment = document.createDocumentFragment();
+                sets.forEach((set, i) => {
+                    fragment.appendChild(renderSetCard(session, ex, set, i));
+                });
+                mobileContainer.appendChild(fragment);
+            }
         }
 
         const note = getExerciseNote(session.id, ex.id);
@@ -2084,7 +2131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     }
 
-    function renderSetCard(session, ex, set) {
+    function renderSetCard(session, ex, set, setIndex = 0) {
         const card = $('#tpl-set-card').content.firstElementChild.cloneNode(true);
         card.dataset.setId = set.id;
         card.style.position = 'relative';
@@ -2105,21 +2152,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
+        // Defer expensive calculations with incremental delays to avoid blocking
+        // This ensures calculations are spread out and don't all execute at once
+        const isMobile = window.innerWidth < 768;
+        const CALC_DELAY = isMobile ? (setIndex * 20) : 0; // Stagger calculations on mobile
+        
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
             progressEl.innerHTML = '<span class="progress--same">...</span>';
-            requestAnimationFrame(() => {
+            // Use setTimeout with incremental delay instead of requestAnimationFrame for mobile
+            const updateProgress = () => {
                 const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
                 let progressHTML = progressText(session, ex, set);
                 if (set.isPR) {
                     progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
                 }
                 progressEl.innerHTML = progressHTML;
-            });
+            };
+            
+            if (isMobile && CALC_DELAY > 0) {
+                setTimeout(updateProgress, CALC_DELAY);
+            } else {
+                requestAnimationFrame(updateProgress);
+            }
         }
 
         if (set.kg && set.reps) {
-            requestAnimationFrame(() => {
+            const update1RM = () => {
                 const onerm = calculate1RM(set.kg, set.reps);
                 if (onerm) {
                     const onermDiv = document.createElement('div');
@@ -2129,7 +2188,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
                     card.appendChild(onermDiv);
                 }
-            });
+            };
+            
+            if (isMobile && CALC_DELAY > 0) {
+                setTimeout(update1RM, CALC_DELAY + 10); // Slight offset from progress calculation
+            } else {
+                requestAnimationFrame(update1RM);
+            }
         }
 
         return card;
