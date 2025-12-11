@@ -1558,14 +1558,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Capture input state before destroying DOM - only if there are existing sessions and active input
-        const activeInput = document.activeElement;
-        const hasActiveInput = activeInput && (
-            activeInput.classList.contains('js-kg') ||
-            activeInput.classList.contains('js-reps') ||
-            activeInput.classList.contains('js-rir')
-        );
-        const inputState = (prevDetails.length > 0 && hasActiveInput) ? captureInputState() : new Map();
-
         const prevDetails = Array.from(container.querySelectorAll('details'));
         const prevOpen = new Set();
         prevDetails.forEach(d => {
@@ -1575,6 +1567,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         const hadPrev = prevDetails.length > 0;
+        
+        const activeInput = document.activeElement;
+        const hasActiveInput = activeInput && (
+            activeInput.classList.contains('js-kg') ||
+            activeInput.classList.contains('js-reps') ||
+            activeInput.classList.contains('js-rir')
+        );
+        const inputState = (hadPrev && hasActiveInput) ? captureInputState() : new Map();
 
         clearDomCache();
         container.innerHTML = '';
