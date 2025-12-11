@@ -1425,12 +1425,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputs = container.querySelectorAll('.js-kg, .js-reps, .js-rir');
         const activeElement = document.activeElement;
 
+        // Cache parent elements to avoid repeated closest() calls
+        const setElementCache = new WeakMap();
+        const sessionCache = new WeakMap();
+        const exerciseCache = new WeakMap();
+
         inputs.forEach(input => {
-            const setElement = input.closest('[data-set-id]');
+            // Use cached set element or find and cache it
+            let setElement = setElementCache.get(input);
+            if (!setElement) {
+                setElement = input.closest('[data-set-id]');
+                if (setElement) setElementCache.set(input, setElement);
+            }
             if (!setElement) return;
 
-            const sessionId = input.closest('.session')?.dataset.id;
-            const exId = input.closest('.exercise')?.dataset.exId;
+            // Use cached session or find and cache it
+            let session = sessionCache.get(input);
+            if (!session) {
+                session = input.closest('.session');
+                if (session) sessionCache.set(input, session);
+            }
+            const sessionId = session?.dataset.id;
+
+            // Use cached exercise or find and cache it
+            let exercise = exerciseCache.get(input);
+            if (!exercise) {
+                exercise = input.closest('.exercise');
+                if (exercise) exerciseCache.set(input, exercise);
+            }
+            const exId = exercise?.dataset.exId;
             const setId = setElement.dataset.setId;
 
             if (sessionId && exId && setId) {
@@ -1454,11 +1477,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = $('#sessions');
         if (!container) return;
 
+        // Cache sessions and exercises to avoid repeated queries
+        const sessionCache = new Map();
+        const exerciseCache = new Map();
+        
         let focusedInput = null;
         let focusData = null;
 
+        // First pass: collect all unique session and exercise IDs
+        const sessionIds = new Set();
+        const exerciseKeys = new Set();
+        
         state.forEach((data, key) => {
-            // Use separator that won't conflict with IDs
+            const parts = key.split('::');
+            if (parts.length < 4) return;
+            sessionIds.add(parts[0]);
+            exerciseKeys.add(`${parts[0]}::${parts[1]}`);
+        });
+
+        // Pre-fetch all sessions and exercises in batch
+        sessionIds.forEach(sessionId => {
+            const session = container.querySelector(`.session[data-id="${sessionId}"]`);
+            if (session) sessionCache.set(sessionId, session);
+        });
+
+        exerciseKeys.forEach(key => {
+            const [sessionId, exId] = key.split('::');
+            const session = sessionCache.get(sessionId);
+            if (session) {
+                const exercise = session.querySelector(`.exercise[data-ex-id="${exId}"]`);
+                if (exercise) exerciseCache.set(key, exercise);
+            }
+        });
+
+        // Second pass: restore values using cached elements
+        state.forEach((data, key) => {
             const parts = key.split('::');
             if (parts.length < 4) return;
 
@@ -1466,11 +1519,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const exId = parts[1];
             const setId = parts[2];
             const inputClass = parts[3];
+            const exerciseKey = `${sessionId}::${exId}`;
 
-            const session = container.querySelector(`.session[data-id="${sessionId}"]`);
-            if (!session) return;
-
-            const exercise = session.querySelector(`.exercise[data-ex-id="${exId}"]`);
+            const exercise = exerciseCache.get(exerciseKey);
             if (!exercise) return;
 
             const setElement = exercise.querySelector(`[data-set-id="${setId}"]`);
@@ -1638,10 +1689,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 exercisesContainer.appendChild(fragment);
                 
-                // Restore input state after exercises are rendered
-                requestAnimationFrame(() => {
-                    restoreInputState(inputState);
-                });
+                // Don't restore input state here - it will be done once at the end
             };
 
             details._renderExercises = renderExercisesLazy;
@@ -1652,8 +1700,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 exercisesContainer.appendChild(addExBtn);
             }
 
-            updateSessionEditUI(session.id);
-
+            // Defer updateSessionEditUI to avoid DOM queries during render
+            // It will be called after all sessions are rendered if needed
+            
             dayBody.appendChild(card);
             details.appendChild(dayBody);
             fragment.appendChild(details);
@@ -1700,15 +1749,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (sessionCard) {
                         sessionCard.classList.add('animate-in');
                     }
-                    // Restore input state for initially open sessions
-                    restoreInputState(inputState);
+                    // Don't restore input state here - it will be done once at the end
                 });
             }
         });
 
         container.appendChild(fragment);
         
-        // Restore input state after DOM is ready (for initially closed sessions that might open)
+        // Update session edit UI for all sessions in batch (more efficient)
+        requestAnimationFrame(() => {
+            sortedSessions.forEach(session => {
+                updateSessionEditUI(session.id);
+            });
+        });
+        
+        // Restore input state once after all DOM is ready
         requestAnimationFrame(() => {
             restoreInputState(inputState);
             isRendering = false;
