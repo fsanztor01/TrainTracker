@@ -1724,9 +1724,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // Minimal summary (fast)
             const summary = document.createElement('summary');
             summary.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:10px;cursor:pointer';
+            const completedStyle = session.completed ? 'color:#4CAF50' : '';
             summary.innerHTML = `
-                <div><strong style="font-weight:800">${escapeHtml(session.name)}</strong></div>
-                <div style="color:var(--muted)">${new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}${session.completed ? ' · Completada ✓' : ''}</div>
+                <div><strong style="font-weight:800;${completedStyle}">${escapeHtml(session.name)}</strong></div>
+                <div style="color:${session.completed ? '#4CAF50' : 'var(--muted)'}">${new Date(session.date).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}${session.completed ? ' · Completada ✓' : ''}</div>
             `;
             details.appendChild(summary);
 
