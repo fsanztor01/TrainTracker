@@ -1317,9 +1317,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!app.exerciseHistoryCache) app.exerciseHistoryCache = {};
         if (app.exerciseHistoryCache[exerciseName]) return app.exerciseHistoryCache[exerciseName];
 
-        const history = app.sessions
-            .filter(s => s.exercises && s.exercises.some(e => e.name === exerciseName))
-            .sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
+        // Optimized: single pass filter and sort
+        const history = [];
+        for (let i = 0; i < app.sessions.length; i++) {
+            const s = app.sessions[i];
+            if (s.exercises) {
+                for (let j = 0; j < s.exercises.length; j++) {
+                    if (s.exercises[j].name === exerciseName) {
+                        history.push(s);
+                        break; // Found exercise in this session, move to next session
+                    }
+                }
+            }
+        }
+        
+        // Sort by date
+        history.sort((a, b) => parseLocalDate(a.date) - parseLocalDate(b.date));
 
         app.exerciseHistoryCache[exerciseName] = history;
         return history;
@@ -1368,16 +1381,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // If still -1, it means it's newer than all history (should be appended)
         if (currentIndex === -1) currentIndex = history.length;
 
-        // Look backwards from currentIndex - 1
+        // Look backwards from currentIndex - 1 - optimized loop
         for (let i = currentIndex - 1; i >= 0; i--) {
             const s = history[i];
-            // Skip if it's the same session (just in case)
+            // Skip if it's the same session
             if (s.id === currentSession.id) continue;
 
-            const ex = (s.exercises || []).find(e => e.name === currentEx.name);
+            // Optimized: direct access instead of find
+            if (!s.exercises) continue;
+            let ex = null;
+            for (let j = 0; j < s.exercises.length; j++) {
+                if (s.exercises[j].name === currentEx.name) {
+                    ex = s.exercises[j];
+                    break;
+                }
+            }
             if (!ex) continue;
 
-            const prevSet = (ex.sets || []).find(st => st.setNumber === currentSet.setNumber);
+            // Optimized: direct access instead of find
+            if (!ex.sets) continue;
+            let prevSet = null;
+            for (let k = 0; k < ex.sets.length; k++) {
+                if (ex.sets[k].setNumber === currentSet.setNumber) {
+                    prevSet = ex.sets[k];
+                    break;
+                }
+            }
+            
             if (prevSet && (prevSet.kg || prevSet.reps)) {
                 const [txt, cls] = compareSets(prevSet, currentSet, currentSet.setNumber);
                 const result = `<span class="${cls}">${txt}</span>`;
@@ -1428,47 +1458,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const state = new Map();
         const inputs = container.querySelectorAll('.js-kg, .js-reps, .js-rir');
+        if (inputs.length === 0) return state; // Early return if no inputs
+        
         const activeElement = document.activeElement;
+        const isActive = (el) => el === activeElement;
 
-        // Cache parent elements to avoid repeated closest() calls
-        const setElementCache = new WeakMap();
-        const sessionCache = new WeakMap();
-        const exerciseCache = new WeakMap();
-
+        // Optimized: traverse DOM once and cache parent relationships
         inputs.forEach(input => {
-            // Use cached set element or find and cache it
-            let setElement = setElementCache.get(input);
-            if (!setElement) {
-                setElement = input.closest('[data-set-id]');
-                if (setElement) setElementCache.set(input, setElement);
-            }
+            const setElement = input.closest('[data-set-id]');
             if (!setElement) return;
 
-            // Use cached session or find and cache it
-            let session = sessionCache.get(input);
-            if (!session) {
-                session = input.closest('.session');
-                if (session) sessionCache.set(input, session);
-            }
+            const session = input.closest('.session');
+            const exercise = input.closest('.exercise');
+            
             const sessionId = session?.dataset.id;
-
-            // Use cached exercise or find and cache it
-            let exercise = exerciseCache.get(input);
-            if (!exercise) {
-                exercise = input.closest('.exercise');
-                if (exercise) exerciseCache.set(input, exercise);
-            }
             const exId = exercise?.dataset.exId;
             const setId = setElement.dataset.setId;
 
             if (sessionId && exId && setId) {
-                // Use a separator that won't conflict with IDs (which may contain hyphens)
                 const key = `${sessionId}::${exId}::${setId}::${input.className}`;
+                const hasFocus = isActive(input);
                 state.set(key, {
                     value: input.value,
-                    hasFocus: input === activeElement,
-                    selectionStart: input.selectionStart,
-                    selectionEnd: input.selectionEnd
+                    hasFocus: hasFocus,
+                    selectionStart: hasFocus ? input.selectionStart : 0,
+                    selectionEnd: hasFocus ? input.selectionEnd : 0
                 });
             }
         });
@@ -1482,40 +1496,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const container = $('#sessions');
         if (!container) return;
 
-        // Cache sessions and exercises to avoid repeated queries
-        const sessionCache = new Map();
-        const exerciseCache = new Map();
-
+        // Optimized: single pass with direct queries (faster than caching for small sets)
         let focusedInput = null;
         let focusData = null;
 
-        // First pass: collect all unique session and exercise IDs
-        const sessionIds = new Set();
-        const exerciseKeys = new Set();
-
-        state.forEach((data, key) => {
-            const parts = key.split('::');
-            if (parts.length < 4) return;
-            sessionIds.add(parts[0]);
-            exerciseKeys.add(`${parts[0]}::${parts[1]}`);
-        });
-
-        // Pre-fetch all sessions and exercises in batch
-        sessionIds.forEach(sessionId => {
-            const session = container.querySelector(`.session[data-id="${sessionId}"]`);
-            if (session) sessionCache.set(sessionId, session);
-        });
-
-        exerciseKeys.forEach(key => {
-            const [sessionId, exId] = key.split('::');
-            const session = sessionCache.get(sessionId);
-            if (session) {
-                const exercise = session.querySelector(`.exercise[data-ex-id="${exId}"]`);
-                if (exercise) exerciseCache.set(key, exercise);
-            }
-        });
-
-        // Second pass: restore values using cached elements
         state.forEach((data, key) => {
             const parts = key.split('::');
             if (parts.length < 4) return;
@@ -1524,9 +1508,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const exId = parts[1];
             const setId = parts[2];
             const inputClass = parts[3];
-            const exerciseKey = `${sessionId}::${exId}`;
 
-            const exercise = exerciseCache.get(exerciseKey);
+            // Direct query - faster for small number of elements
+            const session = container.querySelector(`.session[data-id="${sessionId}"]`);
+            if (!session) return;
+
+            const exercise = session.querySelector(`.exercise[data-ex-id="${exId}"]`);
             if (!exercise) return;
 
             const setElement = exercise.querySelector(`[data-set-id="${setId}"]`);
@@ -1535,28 +1522,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const input = setElement.querySelector(`.${inputClass}`);
             if (!input) return;
 
-            // Restore value
+            // Restore value immediately
             input.value = data.value;
 
-            // Track focused input to restore focus after all inputs are restored
+            // Track focused input
             if (data.hasFocus) {
                 focusedInput = input;
                 focusData = data;
             }
         });
 
-        // Restore focus and selection after a brief delay to ensure DOM is ready
+        // Restore focus immediately if needed
         if (focusedInput && focusData) {
-            requestAnimationFrame(() => {
-                try {
-                    focusedInput.focus();
-                    if (focusedInput.setSelectionRange && typeof focusData.selectionStart === 'number') {
-                        focusedInput.setSelectionRange(focusData.selectionStart, focusData.selectionEnd);
-                    }
-                } catch (e) {
-                    // Ignore focus errors (e.g., element not focusable)
+            try {
+                focusedInput.focus();
+                if (focusedInput.setSelectionRange && typeof focusData.selectionStart === 'number') {
+                    focusedInput.setSelectionRange(focusData.selectionStart, focusData.selectionEnd);
                 }
-            });
+            } catch (e) {
+                // Ignore focus errors
+            }
         }
     }
 
@@ -1572,8 +1557,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Capture input state before destroying DOM
-        const inputState = captureInputState();
+        // Capture input state before destroying DOM - only if there are existing sessions and active input
+        const activeInput = document.activeElement;
+        const hasActiveInput = activeInput && (
+            activeInput.classList.contains('js-kg') ||
+            activeInput.classList.contains('js-reps') ||
+            activeInput.classList.contains('js-rir')
+        );
+        const inputState = (prevDetails.length > 0 && hasActiveInput) ? captureInputState() : new Map();
 
         const prevDetails = Array.from(container.querySelectorAll('details'));
         const prevOpen = new Set();
@@ -1713,67 +1704,48 @@ document.addEventListener('DOMContentLoaded', () => {
             details.appendChild(dayBody);
             fragment.appendChild(details);
 
-            let toggleTimeout;
             details.addEventListener('toggle', function () {
-                if (toggleTimeout) cancelAnimationFrame(toggleTimeout);
-                toggleTimeout = requestAnimationFrame(() => {
-                    const sessionCard = this.querySelector('.session.card');
-                    if (sessionCard) {
-                        if (this.open) {
-                            // Lazy render exercises only when opening
-                            if (this._renderExercises) {
-                                this._renderExercises();
-                                delete this._renderExercises; // Clean up after first render
-                            }
-
-                            // Remove animation class first to reset
-                            sessionCard.classList.remove('animate-in');
-                            // Force reflow only on desktop (expensive on mobile)
-                            if (window.innerWidth > 767) {
-                                void sessionCard.offsetWidth;
-                            }
-                            // Add class to trigger animation
-                            requestAnimationFrame(() => {
-                                sessionCard.classList.add('animate-in');
-                            });
-                        } else {
-                            // Remove animation class when closing
-                            sessionCard.classList.remove('animate-in');
+                const sessionCard = this.querySelector('.session.card');
+                if (sessionCard) {
+                    if (this.open) {
+                        // Lazy render exercises immediately when opening - no delay
+                        if (this._renderExercises) {
+                            this._renderExercises();
+                            delete this._renderExercises; // Clean up after first render
                         }
+
+                        // Add animation class immediately
+                        sessionCard.classList.add('animate-in');
+                    } else {
+                        // Remove animation class when closing
+                        sessionCard.classList.remove('animate-in');
                     }
-                    toggleTimeout = null;
-                });
+                }
             });
 
             if (details.open) {
-                requestAnimationFrame(() => {
-                    if (details._renderExercises) {
-                        details._renderExercises();
-                        delete details._renderExercises;
-                    }
-                    const sessionCard = details.querySelector('.session.card');
-                    if (sessionCard) {
-                        sessionCard.classList.add('animate-in');
-                    }
-                    // Don't restore input state here - it will be done once at the end
-                });
+                // Render exercises immediately - no delay
+                if (details._renderExercises) {
+                    details._renderExercises();
+                    delete details._renderExercises;
+                }
+                const sessionCard = details.querySelector('.session.card');
+                if (sessionCard) {
+                    sessionCard.classList.add('animate-in');
+                }
             }
         });
 
         container.appendChild(fragment);
 
-        // Update session edit UI for all sessions in batch (more efficient)
-        requestAnimationFrame(() => {
-            sortedSessions.forEach(session => {
-                updateSessionEditUI(session.id);
-            });
+        // Update session edit UI immediately - no delay
+        sortedSessions.forEach(session => {
+            updateSessionEditUI(session.id);
         });
 
-        // Restore input state once after all DOM is ready
-        requestAnimationFrame(() => {
-            restoreInputState(inputState);
-            isRendering = false;
-        });
+        // Restore input state immediately - no delay
+        restoreInputState(inputState);
+        isRendering = false;
     }
     function renderExercise(session, ex, isDesktop) {
         const block = $('#tpl-exercise').content.firstElementChild.cloneNode(true);
@@ -1934,39 +1906,32 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Add PR badge - defer progress calculation slightly but don't pause during scroll
+        // Add PR badge - use cached value if available, otherwise calculate
         const progressCell = row.querySelector('.progress');
         if (progressCell) {
-            // Show loading state first, then calculate
-            progressCell.innerHTML = '<span class="progress--same">...</span>';
-            // Defer calculation slightly to allow DOM to settle, then execute
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    let progressHTML = progressText(session, ex, set);
-                    if (set.isPR) {
-                        const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                        progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
-                    }
-                    progressCell.innerHTML = progressHTML;
-                });
-            });
+            const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
+            let progressHTML = progressCache.get(cacheKey);
+            if (!progressHTML) {
+                progressHTML = progressText(session, ex, set);
+            }
+            if (set.isPR) {
+                const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                progressHTML += `<span class="pr-badge">🏆 PR ${prLabel}</span>`;
+            }
+            progressCell.innerHTML = progressHTML;
         }
 
-        // Calculate and display 1RM - defer slightly but don't pause during scroll
+        // Calculate and display 1RM - only if both values present
         if (set.kg && set.reps) {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const onerm = calculate1RM(set.kg, set.reps);
-                    if (onerm) {
-                        const onermCell = document.createElement('td');
-                        onermCell.className = 'onerm-display';
-                        const currentBest = app.onerm[ex.name] || 0;
-                        const isPR = onerm > currentBest;
-                        onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                        row.appendChild(onermCell);
-                    }
-                });
-            });
+            const onerm = calculate1RM(set.kg, set.reps);
+            if (onerm) {
+                const onermCell = document.createElement('td');
+                onermCell.className = 'onerm-display';
+                const currentBest = app.onerm[ex.name] || 0;
+                const isPR = onerm > currentBest;
+                onermCell.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                row.appendChild(onermCell);
+            }
         }
 
         return row;
@@ -1993,39 +1958,31 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!rirInput.value && (set.planRir || set.rirTemplate)) rirInput.placeholder = set.planRir || set.rirTemplate;
         }
 
-        // Defer expensive calculations slightly but don't pause during scroll
-        // Calculations are deferred to avoid blocking initial render, but execute immediately after
+        // Use cached value if available, otherwise calculate - no delays
         const progressEl = card.querySelector('.set-progress');
         if (progressEl) {
-            progressEl.innerHTML = '<span class="progress--same">...</span>';
-            // Defer calculation slightly to allow DOM to settle, then execute
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
-                    let progressHTML = progressText(session, ex, set);
-                    if (set.isPR) {
-                        progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
-                    }
-                    progressEl.innerHTML = progressHTML;
-                });
-            });
+            const cacheKey = `${getCacheKey(session.id, ex.id, set.id)}-${set.kg || ''}-${set.reps || ''}-${set.rir || ''}`;
+            let progressHTML = progressCache.get(cacheKey);
+            if (!progressHTML) {
+                progressHTML = progressText(session, ex, set);
+            }
+            const prLabel = set.isPR ? (set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps') : '';
+            if (set.isPR) {
+                progressHTML += `<span class="pr-badge pr-badge-set">🏆 PR ${prLabel}</span>`;
+            }
+            progressEl.innerHTML = progressHTML;
         }
 
         if (set.kg && set.reps) {
-            // Defer calculation slightly to allow DOM to settle, then execute
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    const onerm = calculate1RM(set.kg, set.reps);
-                    if (onerm) {
-                        const onermDiv = document.createElement('div');
-                        onermDiv.className = 'onerm-display';
-                        const currentBest = app.onerm[ex.name] || 0;
-                        const isPR = onerm > currentBest;
-                        onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
-                        card.appendChild(onermDiv);
-                    }
-                });
-            });
+            const onerm = calculate1RM(set.kg, set.reps);
+            if (onerm) {
+                const onermDiv = document.createElement('div');
+                onermDiv.className = 'onerm-display';
+                const currentBest = app.onerm[ex.name] || 0;
+                const isPR = onerm > currentBest;
+                onermDiv.innerHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+                card.appendChild(onermDiv);
+            }
         }
 
         return card;
@@ -4533,16 +4490,15 @@ document.addEventListener('DOMContentLoaded', () => {
         st[field] = value;
 
         // Only check PRs and 1RM if kg or reps changed and both are present
-        // This avoids expensive calculations on every keystroke
+        // Defer to avoid blocking input, but use minimal delay
         if ((field === 'kg' || field === 'reps') && st.kg && st.reps) {
-            // Defer PR check - it's expensive and not needed immediately
-            requestIdleCallback(() => {
+            setTimeout(() => {
                 checkAndRecordPRs(sessionId, exId, setId, ex.name);
                 const onerm = calculate1RM(st.kg, st.reps);
                 if (onerm) {
                     update1RM(ex.name, onerm);
                 }
-            }, { timeout: 500 });
+            }, 0);
         }
 
         // Only update goals progress if session is completed AND user finished editing
@@ -4612,21 +4568,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const cacheKey = `${getCacheKey(sessionData.id, exData.id, set.id)}-${setValuesKey}`;
             const cachedProgress = progressCache.get(cacheKey);
             
-            // Only recalculate if not cached
+            // Only recalculate if not cached - calculate immediately
             if (!cachedProgress) {
-                requestIdleCallback(() => {
-                    try {
-                        let progressHTML = progressText(sessionData, exData, set);
-                        if (set.isPR) {
-                            const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
-                            const badgeClass = progressEl.classList.contains('set-progress') ? 'pr-badge-set' : 'pr-badge';
-                            progressHTML += `<span class="pr-badge ${badgeClass}">🏆 PR ${prLabel}</span>`;
-                        }
-                        progressEl.innerHTML = progressHTML;
-                    } catch (e) {
-                        console.warn('Error updating progress UI:', e);
+                try {
+                    let progressHTML = progressText(sessionData, exData, set);
+                    if (set.isPR) {
+                        const prLabel = set.prType === 'weight' ? 'Peso' : set.prType === 'volume' ? 'Volumen' : 'Reps';
+                        const badgeClass = progressEl.classList.contains('set-progress') ? 'pr-badge-set' : 'pr-badge';
+                        progressHTML += `<span class="pr-badge ${badgeClass}">🏆 PR ${prLabel}</span>`;
                     }
-                }, { timeout: 100 });
+                    progressEl.innerHTML = progressHTML;
+                } catch (e) {
+                    console.warn('Error updating progress UI:', e);
+                }
             } else {
                 // Use cached value
                 let progressHTML = cachedProgress;
@@ -4639,49 +4593,47 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Update 1RM display - only if kg and reps are present
+        // Update 1RM display - only if kg and reps are present - calculate immediately
         if (set.kg && set.reps) {
-            requestIdleCallback(() => {
-                try {
-                    const onerm = calculate1RM(set.kg, set.reps);
-                    if (onerm) {
-                        const currentBest = app.onerm[exerciseName] || 0;
-                        const isPR = onerm > currentBest;
-                        const onermHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
+            try {
+                const onerm = calculate1RM(set.kg, set.reps);
+                if (onerm) {
+                    const currentBest = app.onerm[exerciseName] || 0;
+                    const isPR = onerm > currentBest;
+                    const onermHTML = `<span class="${isPR ? 'onerm-pr' : 'onerm-value'}">1RM: ${onerm.toFixed(1)} kg</span>`;
 
-                        // Check if 1RM element already exists
-                        let onermEl = setElement.querySelector('.onerm-display');
-                        if (onermEl) {
-                            // Only update if value changed
-                            if (onermEl.textContent !== `1RM: ${onerm.toFixed(1)} kg`) {
-                                onermEl.innerHTML = onermHTML;
-                            }
-                        } else {
-                            // Create new 1RM element
-                            const isDesktop = setElement.tagName === 'TR';
-                            if (isDesktop) {
-                                const onermCell = document.createElement('td');
-                                onermCell.className = 'onerm-display';
-                                onermCell.innerHTML = onermHTML;
-                                setElement.appendChild(onermCell);
-                            } else {
-                                const onermDiv = document.createElement('div');
-                                onermDiv.className = 'onerm-display';
-                                onermDiv.innerHTML = onermHTML;
-                                setElement.appendChild(onermDiv);
-                            }
+                    // Check if 1RM element already exists
+                    let onermEl = setElement.querySelector('.onerm-display');
+                    if (onermEl) {
+                        // Only update if value changed
+                        if (onermEl.textContent !== `1RM: ${onerm.toFixed(1)} kg`) {
+                            onermEl.innerHTML = onermHTML;
                         }
                     } else {
-                        // Remove 1RM display if kg or reps is empty
-                        const onermEl = setElement.querySelector('.onerm-display');
-                        if (onermEl) {
-                            onermEl.remove();
+                        // Create new 1RM element
+                        const isDesktop = setElement.tagName === 'TR';
+                        if (isDesktop) {
+                            const onermCell = document.createElement('td');
+                            onermCell.className = 'onerm-display';
+                            onermCell.innerHTML = onermHTML;
+                            setElement.appendChild(onermCell);
+                        } else {
+                            const onermDiv = document.createElement('div');
+                            onermDiv.className = 'onerm-display';
+                            onermDiv.innerHTML = onermHTML;
+                            setElement.appendChild(onermDiv);
                         }
                     }
-                } catch (e) {
-                    console.warn('Error updating 1RM UI:', e);
+                } else {
+                    // Remove 1RM display if kg or reps is empty
+                    const onermEl = setElement.querySelector('.onerm-display');
+                    if (onermEl) {
+                        onermEl.remove();
+                    }
                 }
-            }, { timeout: 150 });
+            } catch (e) {
+                console.warn('Error updating 1RM UI:', e);
+            }
         }
     }
 
